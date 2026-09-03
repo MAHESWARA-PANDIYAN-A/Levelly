@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     GROQ_MODEL: str = "llama-3.1-8b-instant"
 
     # Partner configuration
+    PAYMENT_PROVIDER: str = "mock"
+    PAYMENT_PROVIDER_API_URL: Optional[str] = None
+    PAYMENT_PROVIDER_KEY: Optional[str] = None
+    PAYMENT_PROVIDER_SECRET: Optional[str] = None
+
     NBFC_PROVIDER: str = "mock"
     INVESTMENT_PROVIDER: str = "mock"
     NBFC_API_URL: Optional[str] = None

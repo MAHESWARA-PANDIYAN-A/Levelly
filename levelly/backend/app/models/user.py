@@ -50,6 +50,8 @@ class User(Base):
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
     coach_conversations = relationship("CoachConversation", back_populates="user", cascade="all, delete-orphan")
     audit_logs = relationship("AuditLog", back_populates="user", cascade="all, delete-orphan")
+    linked_payment_accounts = relationship("LinkedPaymentAccount", back_populates="user", cascade="all, delete-orphan")
+    payment_transactions = relationship("PaymentTransaction", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<User id={self.id} email={self.email}>"

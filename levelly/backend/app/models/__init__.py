@@ -10,6 +10,13 @@ from app.models.investment import InvestmentProduct, InvestmentSuggestion, Inves
 from app.models.notification import Notification
 from app.models.coach import CoachConversation
 from app.models.audit import AuditLog
+from app.models.payment import (
+    LinkedPaymentAccount,
+    Merchant,
+    PaymentTransaction,
+    QRPaymentSession,
+    PaymentProviderEvent,
+)
 
 __all__ = [
     "User", "Wallet", "Transaction", "IncomeTransaction", "ExpenseTransaction",
@@ -18,4 +25,5 @@ __all__ = [
     "CreditRequest", "PartnerCreditOffer",
     "InvestmentProduct", "InvestmentSuggestion", "InvestmentConsent", "InvestmentOrder",
     "Notification", "CoachConversation", "AuditLog",
+    "LinkedPaymentAccount", "Merchant", "PaymentTransaction", "QRPaymentSession", "PaymentProviderEvent",
 ]

@@ -1,6 +1,14 @@
 """
 LEVELLY Backend — FastAPI Application Factory
 """
+import sys
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -14,10 +22,10 @@ from app.api.v1.router import api_router
 async def lifespan(app: FastAPI):
     """Application lifespan - startup and shutdown."""
     # Startup
-    print(f"🚀 LEVELLY Backend starting — environment: {settings.APP_ENV}")
+    print(f"[START] LEVELLY Backend starting - environment: {settings.APP_ENV}")
     yield
     # Shutdown
-    print("🛑 LEVELLY Backend shutting down")
+    print("[STOP] LEVELLY Backend shutting down")
 
 
 def create_application() -> FastAPI:

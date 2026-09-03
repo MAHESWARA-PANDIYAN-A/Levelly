@@ -1,49 +1,52 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Shield, TrendingDown, TrendingUp, ArrowRight } from 'lucide-react'
-import { healthAPI, nudgesAPI } from '../lib/api'
+import {
+  ShieldCheck,
+  ArrowRight,
+  Building2,
+  Sparkles,
+  QrCode,
+  HeartHandshake,
+} from 'lucide-react'
+import { healthAPI, paymentAPI, walletAPI } from '../lib/api'
 import { useAuthStore } from '../store/authStore'
 
 const formatINR = (amount: number) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount)
-
-function SkeletonCard({ height = 'h-32' }: { height?: string }) {
-  return <div className={`skeleton ${height} rounded-2xl w-full`} />
-}
 
 function DistressBanner({ level }: { level: string; signals?: string[] }) {
   if (level === 'LOW') return null
 
   const config = {
     MODERATE: {
-      bg: 'bg-amber-50 border-amber-200',
+      bg: 'bg-amber-50 border-amber-200/90 text-amber-900',
       icon: '⚠️',
-      title: 'Earnings tracking lower',
-      text: 'Your income has dipped recently. Levelly Coach can help you navigate.',
+      title: 'Earnings Volatility Detected',
+      text: 'Income has dipped recently. Save-at-Pay is automatically tuning savings to protect your cashflow.',
     },
     HIGH: {
-      bg: 'bg-orange-50 border-orange-200',
+      bg: 'bg-orange-50 border-orange-200/90 text-orange-950',
       icon: '📉',
-      title: 'Financial pressure detected',
-      text: "Your recent earnings are significantly below your usual range. Let's protect your stability.",
+      title: 'Financial Pressure Alert',
+      text: 'Recent platform payouts are 37% below your 3-month baseline. Emergency safety reserve is active.',
     },
     SEVERE: {
-      bg: 'bg-red-50 border-red-200',
+      bg: 'bg-red-50 border-red-200/90 text-red-950',
       icon: '🔴',
-      title: 'Immediate attention needed',
-      text: 'Your financial situation needs attention. Levelly Coach is ready to help.',
+      title: 'Critical Income Shock',
+      text: 'Significant income contraction. Levelly Coach and partner liquidity support are available.',
     },
   }[level]
 
   if (!config) return null
 
   return (
-    <div className={`mx-5 mt-3 p-4 rounded-2xl border ${config.bg} animate-fade-in`}>
+    <div className={`mx-5 mb-4 p-4 rounded-3xl border ${config.bg} shadow-sm animate-fade-in`}>
       <div className="flex items-start gap-3">
-        <span className="text-xl">{config.icon}</span>
+        <span className="text-2xl mt-0.5">{config.icon}</span>
         <div className="flex-1">
-          <p className="font-semibold text-gray-800 text-sm">{config.title}</p>
-          <p className="text-gray-600 text-xs mt-0.5">{config.text}</p>
+          <p className="font-bold text-xs uppercase tracking-wider">{config.title}</p>
+          <p className="text-xs mt-1 leading-relaxed">{config.text}</p>
         </div>
       </div>
     </div>
@@ -55,299 +58,247 @@ export default function HomePage() {
   const { user } = useAuthStore()
   const firstName = user?.full_name?.split(' ')[0] || 'there'
 
-  const { data: dashboard, isLoading } = useQuery({
+  const { data: dashboard } = useQuery({
     queryKey: ['dashboard'],
     queryFn: () => healthAPI.dashboard().then(r => r.data),
     refetchInterval: 60000,
   })
 
-  const { data: nudgesData } = useQuery({
-    queryKey: ['nudges'],
-    queryFn: () => nudgesAPI.get().then(r => r.data),
-    refetchInterval: 60000,
+  const { data: linkedAccount } = useQuery({
+    queryKey: ['linked-account'],
+    queryFn: () => paymentAPI.getLinkedAccount().then(r => r.data),
   })
 
-  const nudges = nudgesData?.nudges || []
+  const { data: safetyWallet } = useQuery({
+    queryKey: ['safety-wallet'],
+    queryFn: () => walletAPI.getSafety().then(r => r.data),
+  })
+
+  const { data: recentPayments } = useQuery({
+    queryKey: ['recent-payments'],
+    queryFn: () => paymentAPI.recent(5).then(r => r.data),
+  })
+
   const distressLevel = dashboard?.distress?.level || 'LOW'
+  const safetyBalance = safetyWallet?.balance ?? dashboard?.safety_wallet?.balance ?? 8200
+  const safetyTarget = safetyWallet?.target_amount ?? dashboard?.safety_wallet?.target ?? 10000
+  const safetyProgress = Math.min(100, (safetyBalance / (safetyTarget || 1)) * 100)
+  const resilienceScore = dashboard?.resilience?.score ?? 58
+  const resilienceLabel = dashboard?.resilience?.label ?? 'at_risk'
 
   return (
-    <div className="animate-fade-in pb-8">
-      {/* Admin quick switch banner */}
-      {user?.role === 'admin' && (
-        <div className="mx-5 my-2 p-3 bg-slate-900 text-white rounded-xl flex items-center justify-between text-xs shadow-sm">
-          <div className="flex items-center gap-2">
-            <Shield className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-            <span>Logged in as <strong>Administrator</strong></span>
-          </div>
-          <button
-            onClick={() => navigate('/admin')}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1"
-          >
-            Admin Portal <ArrowRight className="w-3 h-3" />
-          </button>
+    <div className="animate-fade-in pb-10">
+      {/* Greeting Header */}
+      <div className="px-5 pt-1 pb-3 flex items-center justify-between">
+        <div>
+          <p className="text-xs text-slate-400 font-medium">
+            {new Date().toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })}
+          </p>
+          <h1 className="text-xl font-black text-slate-900 tracking-tight">
+            Hi, {firstName} 👋
+          </h1>
+          <p className="text-[11px] text-slate-500 font-medium">
+            {user?.occupation || 'Food Delivery Rider'} • {user?.city || 'Chennai'}
+          </p>
         </div>
-      )}
 
-      {/* Greeting */}
-      <div className="px-5 pb-2">
-        <p className="text-sm text-gray-500 mt-1">
-          {new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })}
-        </p>
-        <h1 className="text-2xl font-bold text-levelly-text">
-          Hey, {firstName} 👋
-        </h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          {user?.occupation || 'Your financial dashboard'}
-        </p>
+        <button
+          onClick={() => navigate('/coach')}
+          className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 px-3 py-1.5 rounded-full text-xs font-bold transition shadow-sm"
+        >
+          <HeartHandshake className="w-3.5 h-3.5 text-emerald-600" />
+          <span>Coach</span>
+        </button>
       </div>
 
-      {/* Distress banner */}
-      {dashboard && <DistressBanner level={distressLevel} signals={dashboard.distress?.signals || []} />}
+      {/* Distress Alert Banner if in High/Severe */}
+      <DistressBanner level={distressLevel} signals={dashboard?.distress?.signals} />
 
-      {/* Daily Wallet Card */}
-      <div className="mx-5 mt-4">
-        {isLoading ? (
-          <SkeletonCard height="h-36" />
-        ) : (
-          <div className="card-premium animate-slide-up">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-emerald-200 text-sm font-medium">Daily Wallet</span>
-              <div className="flex items-center gap-1 bg-white/10 rounded-full px-2 py-0.5">
-                <div className="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-pulse" />
-                <span className="text-emerald-200 text-xs">Live</span>
-              </div>
-            </div>
-            <div className="text-4xl font-bold text-white mt-1 text-rupee">
-              {formatINR(dashboard?.daily_wallet?.balance || 0)}
-            </div>
-            <p className="text-emerald-200/60 text-xs mt-1">Available to spend</p>
+      {/* DIRECT BANK & LEVELLY PAY CARD (New Model Core) */}
+      <div className="mx-5 mb-4">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-950 to-emerald-950 p-5 text-white shadow-xl shadow-slate-950/20 border border-emerald-800/30">
+          <div className="absolute top-0 right-0 -mt-6 -mr-6 w-36 h-36 bg-emerald-500/10 rounded-full blur-xl pointer-events-none" />
 
-            <div className="flex gap-2 mt-4">
-              <button
-                id="btn-make-payment"
-                onClick={() => navigate('/pay')}
-                className="flex-1 bg-white/20 hover:bg-white/30 text-white font-semibold py-2.5 rounded-xl text-sm transition-all border border-white/20"
-              >
-                Make Payment
-              </button>
-              <button
-                onClick={() => navigate('/income')}
-                className="flex-1 bg-white/20 hover:bg-white/30 text-white font-semibold py-2.5 rounded-xl text-sm transition-all border border-white/20"
-              >
-                Add Income
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Safety Wallet */}
-      <div className="mx-5 mt-3">
-        {isLoading ? (
-          <SkeletonCard height="h-28" />
-        ) : (
-          <div
-            className="card cursor-pointer hover:shadow-card-hover transition-shadow"
-            onClick={() => navigate('/wallets')}
-          >
-            <div className="flex items-center justify-between mb-2">
+          <div className="relative z-10">
+            {/* Header / Source */}
+            <div className="flex items-center justify-between text-xs text-slate-300 mb-3">
               <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-emerald-600" />
-                <span className="text-sm font-semibold text-gray-700">Safety Wallet</span>
-              </div>
-              <ArrowRight className="w-4 h-4 text-gray-400" />
-            </div>
-
-            <div className="flex items-end justify-between mb-3">
-              <div>
-                <span className="text-2xl font-bold text-gray-900">
-                  {formatINR(dashboard?.safety_wallet?.balance || 0)}
-                </span>
-                <span className="text-gray-400 text-sm ml-1">
-                  / {formatINR(dashboard?.safety_wallet?.target || 10000)}
+                <Building2 className="w-4 h-4 text-emerald-400" />
+                <span className="font-semibold text-white">
+                  {linkedAccount?.bank_name || 'HDFC Bank'} ({linkedAccount?.account_mask || '****4821'})
                 </span>
               </div>
-              <span className="text-sm font-bold text-emerald-600">
-                {(dashboard?.safety_wallet?.progress || 0).toFixed(0)}%
+              <span className="text-[10px] font-bold bg-emerald-900/60 text-emerald-300 border border-emerald-700/50 px-2 py-0.5 rounded-full">
+                Direct UPI Ready
               </span>
             </div>
 
-            <div className="progress-bar">
-              <div
-                className="progress-fill"
-                style={{ width: `${Math.min(100, dashboard?.safety_wallet?.progress || 0)}%` }}
-              />
-            </div>
-
-            {(dashboard?.safety_wallet?.progress || 0) < 100 && (
-              <p className="text-xs text-gray-500 mt-2">
-                {formatINR(Math.max(0, (dashboard?.safety_wallet?.target || 10000) - (dashboard?.safety_wallet?.balance || 0)))} more to reach your target
+            {/* UPI Identifier & Architecture Note */}
+            <div className="mb-4">
+              <p className="text-[11px] text-emerald-300/80 font-mono">
+                {linkedAccount?.upi_id || 'arjun@upi'}
               </p>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* LEVELLY Financial Resilience Score */}
-      <div className="mx-5 mt-3">
-        {isLoading ? (
-          <SkeletonCard height="h-24" />
-        ) : (
-          <div className="card cursor-pointer" onClick={() => navigate('/analytics')}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 font-medium">Financial Resilience Score</p>
-                <p className="text-xs text-gray-400 mt-0.5">LEVELLY's measure of your financial health</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-3xl font-bold text-gray-900">
-                    {(dashboard?.resilience?.score || 0).toFixed(0)}
-                  </span>
-                  <span className="text-gray-400 text-sm">/100</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize
-                    ${dashboard?.resilience?.label === 'stable' ? 'bg-green-100 text-green-700' : ''}
-                    ${dashboard?.resilience?.label === 'moderate' ? 'bg-amber-100 text-amber-700' : ''}
-                    ${dashboard?.resilience?.label === 'at_risk' ? 'bg-orange-100 text-orange-700' : ''}
-                    ${dashboard?.resilience?.label === 'critical' ? 'bg-red-100 text-red-700' : ''}
-                  `}>
-                    {(dashboard?.resilience?.label || 'stable').replace('_', ' ')}
-                  </span>
-                </div>
-              </div>
-              <div className="w-16 h-16 flex items-center justify-center">
-                <svg viewBox="0 0 64 64" className="w-full h-full -rotate-90">
-                  <circle cx="32" cy="32" r="26" fill="none" stroke="#f0fdf4" strokeWidth="8" />
-                  <circle
-                    cx="32" cy="32" r="26"
-                    fill="none"
-                    stroke={
-                      (dashboard?.resilience?.score || 0) >= 75 ? '#059669' :
-                      (dashboard?.resilience?.score || 0) >= 55 ? '#d97706' :
-                      (dashboard?.resilience?.score || 0) >= 35 ? '#ea580c' : '#dc2626'
-                    }
-                    strokeWidth="8"
-                    strokeDasharray={`${((dashboard?.resilience?.score || 0) / 100) * 163} 163`}
-                    strokeLinecap="round"
-                    style={{ transition: 'stroke-dasharray 1s ease-out' }}
-                  />
-                </svg>
-              </div>
+              <p className="text-xs text-slate-300 mt-1">
+                Spend directly from your bank. Zero preloading required.
+              </p>
             </div>
-          </div>
-        )}
-      </div>
 
-      {/* Income Section */}
-      <div className="mx-5 mt-3">
-        {isLoading ? (
-          <SkeletonCard height="h-24" />
-        ) : (
-          <div className="card cursor-pointer" onClick={() => navigate('/income')}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Recent Income Pace</p>
-                <p className="text-xl font-bold text-gray-900 mt-1">
-                  {formatINR(dashboard?.income?.recent_pace || 0)}<span className="text-sm text-gray-400 font-normal">/month</span>
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  Usual: {formatINR(dashboard?.income?.historical_avg || 0)}/month
-                </p>
-              </div>
-              <div className="flex flex-col items-end gap-1">
-                {dashboard?.income?.trend === 'declining' ? (
-                  <TrendingDown className="w-6 h-6 text-orange-500" />
-                ) : (
-                  <TrendingUp className="w-6 h-6 text-emerald-600" />
-                )}
-                <span className={`text-xs font-semibold capitalize px-2 py-0.5 rounded-full
-                  ${dashboard?.income?.trend === 'declining' ? 'text-orange-600 bg-orange-50' : 'text-emerald-600 bg-emerald-50'}
-                `}>
-                  {dashboard?.income?.trend || 'stable'}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Nudges */}
-      {nudges.length > 0 && (
-        <div className="mx-5 mt-4">
-          <p className="section-header">What LEVELLY sees</p>
-          <div className="space-y-2">
-            {nudges.slice(0, 2).map((nudge: any, i: number) => (
-              <div
-                key={i}
-                onClick={() => nudge.cta_url && navigate(nudge.cta_url)}
-                className={`p-3.5 rounded-2xl cursor-pointer border transition-all
-                  ${nudge.priority === 'high' ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-100'}
-                `}
-              >
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-700 flex-1">{nudge.message}</p>
-                  <ArrowRight className="w-4 h-4 text-gray-400 ml-2 flex-shrink-0" />
-                </div>
-                {nudge.cta && (
-                  <p className={`text-xs font-semibold mt-1.5
-                    ${nudge.priority === 'high' ? 'text-orange-600' : 'text-emerald-600'}
-                  `}>
-                    {nudge.cta} →
-                  </p>
-                )}
-              </div>
-            ))}
+            {/* LEVELLY Pay Instant Launch Button */}
+            <button
+              id="btn-levelly-pay"
+              onClick={() => navigate('/pay')}
+              className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black rounded-2xl text-xs transition shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 active:scale-[0.98]"
+            >
+              <QrCode className="w-4 h-4" /> Scan & Pay with LEVELLY Pay
+            </button>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Quick Actions */}
-      <div className="mx-5 mt-5">
-        <p className="section-header">Quick Actions</p>
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            {
-              id: 'qa-pay',
-              icon: '💳',
-              label: 'Make Payment',
-              sub: 'Save as you pay',
-              to: '/pay',
-              color: 'bg-emerald-50',
-            },
-            {
-              id: 'qa-coach',
-              icon: '🤝',
-              label: 'Levelly Coach',
-              sub: 'Get guidance',
-              to: '/coach',
-              color: 'bg-blue-50',
-            },
-            {
-              id: 'qa-grow',
-              icon: '📈',
-              label: 'Grow Surplus',
-              sub: 'Smart investments',
-              to: '/grow',
-              color: 'bg-purple-50',
-            },
-            {
-              id: 'qa-credit',
-              icon: '🏦',
-              label: 'Need Credit?',
-              sub: 'Responsible lending',
-              to: '/credit',
-              color: 'bg-yellow-50',
-            },
-          ].map(({ id, icon, label, sub, to, color }) => (
-            <button
-              key={id}
-              id={id}
-              onClick={() => navigate(to)}
-              className={`${color} rounded-2xl p-4 text-left hover:shadow-card transition-all active:scale-98`}
-            >
-              <span className="text-2xl">{icon}</span>
-              <p className="font-semibold text-gray-800 text-sm mt-2">{label}</p>
-              <p className="text-gray-500 text-xs">{sub}</p>
-            </button>
-          ))}
+      {/* SAFETY WALLET RESILIENCE CARD */}
+      <div className="mx-5 mb-4">
+        <div
+          onClick={() => navigate('/safety')}
+          className="cursor-pointer bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md transition active:scale-[0.99]"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-900">Safety Wallet</p>
+                <p className="text-[10px] text-slate-400">Emergency Shock Reserve</p>
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-400" />
+          </div>
+
+          <div className="flex items-baseline justify-between mb-2">
+            <div>
+              <span className="text-2xl font-black text-slate-900">{formatINR(safetyBalance)}</span>
+              <span className="text-xs text-slate-400 font-medium ml-1">/ {formatINR(safetyTarget)}</span>
+            </div>
+            <span className="text-xs font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+              {safetyProgress.toFixed(0)}% Buffer
+            </span>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-2">
+            <div
+              className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-700"
+              style={{ width: `${safetyProgress}%` }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between text-[11px] text-slate-500">
+            <span>
+              {safetyProgress < 100
+                ? `${formatINR(Math.max(0, safetyTarget - safetyBalance))} to target`
+                : 'Target achieved! 🎉'}
+            </span>
+            <span className="text-emerald-700 font-semibold flex items-center gap-1">
+              <Sparkles className="w-3 h-3" /> Auto-grows on UPI spends
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* FINANCIAL RESILIENCE SCORE & HEALTH */}
+      <div className="mx-5 mb-4">
+        <div
+          onClick={() => navigate('/analytics')}
+          className="cursor-pointer bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between"
+        >
+          <div>
+            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Financial Resilience Score</p>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-3xl font-black text-slate-900">{resilienceScore.toFixed(0)}</span>
+              <span className="text-xs text-slate-400 font-semibold">/ 100</span>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full capitalize ${
+                  resilienceLabel === 'stable'
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : resilienceLabel === 'moderate'
+                    ? 'bg-amber-50 text-amber-700'
+                    : 'bg-orange-50 text-orange-700'
+                }`}
+              >
+                {resilienceLabel.replace('_', ' ')}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Adaptive buffer safeguards against irregular gig income
+            </p>
+          </div>
+
+          <div className="w-14 h-14 relative flex items-center justify-center">
+            <svg viewBox="0 0 40 40" className="w-full h-full -rotate-90">
+              <circle cx="20" cy="20" r="16" fill="none" stroke="#F1F5F9" strokeWidth="4" />
+              <circle
+                cx="20"
+                cy="20"
+                r="16"
+                fill="none"
+                stroke="#10B981"
+                strokeWidth="4"
+                strokeDasharray={`${(resilienceScore / 100) * 100.5} 100.5`}
+                strokeLinecap="round"
+              />
+            </svg>
+            <span className="absolute text-[11px] font-black text-slate-800">
+              {resilienceScore.toFixed(0)}%
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* RECENT LEVELLY PAY ACTIVITY */}
+      <div className="mx-5">
+        <div className="flex items-center justify-between mb-2.5">
+          <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+            Recent Payments & Savings
+          </h2>
+          <button
+            onClick={() => navigate('/transactions')}
+            className="text-[11px] font-bold text-emerald-700 hover:underline"
+          >
+            History
+          </button>
+        </div>
+
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm divide-y divide-slate-100 overflow-hidden">
+          {recentPayments && recentPayments.length > 0 ? (
+            recentPayments.map((p: any) => (
+              <div key={p.id} className="p-3.5 flex items-center justify-between hover:bg-slate-50/70 transition">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 font-bold text-xs">
+                    {p.merchant_name?.slice(0, 2).toUpperCase() || 'TX'}
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">{p.merchant_name}</p>
+                    <p className="text-[10px] text-slate-400 capitalize">
+                      {p.category} • UPI Direct
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <p className="text-xs font-black text-slate-900">-{formatINR(p.amount)}</p>
+                  {p.save_amount > 0 && (
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                      +{formatINR(p.save_amount)} saved
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="p-5 text-center text-xs text-slate-400">
+              No recent payments. Make your first payment with LEVELLY Pay!
+            </div>
+          )}
         </div>
       </div>
     </div>

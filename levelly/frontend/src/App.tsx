@@ -4,7 +4,6 @@ import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import HomePage from './pages/HomePage'
-import WalletsPage from './pages/WalletsPage'
 import GrowPage from './pages/GrowPage'
 import CreditPage from './pages/CreditPage'
 import ProfilePage from './pages/ProfilePage'
@@ -18,9 +17,15 @@ import IncomePage from './pages/IncomePage'
 import InvestmentDetailPage from './pages/InvestmentDetailPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 
+import SafetyWalletPage from './pages/SafetyWalletPage'
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
   if (!isAuthenticated) return <Navigate to="/login" replace />
+  // If admin lands directly on consumer home, redirect them to admin operations portal
+  if (user?.role === 'admin' && window.location.pathname === '/') {
+    return <Navigate to="/admin" replace />
+  }
   return <>{children}</>
 }
 
@@ -53,12 +58,13 @@ export default function App() {
       {/* Protected routes with bottom nav */}
       <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<HomePage />} />
-        <Route path="wallets" element={<WalletsPage />} />
+        <Route path="safety" element={<SafetyWalletPage />} />
+        <Route path="wallets" element={<SafetyWalletPage />} />
+        <Route path="pay" element={<PaymentPage />} />
         <Route path="grow" element={<GrowPage />} />
         <Route path="grow/invest/:productId" element={<InvestmentDetailPage />} />
         <Route path="credit" element={<CreditPage />} />
         <Route path="profile" element={<ProfilePage />} />
-        <Route path="pay" element={<PaymentPage />} />
         <Route path="large-expense" element={<LargeExpensePage />} />
         <Route path="coach" element={<CoachPage />} />
         <Route path="notifications" element={<NotificationsPage />} />

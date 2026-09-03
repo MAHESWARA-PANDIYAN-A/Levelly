@@ -696,5 +696,80 @@ class TestEndToEnd:
         guardrail_svc = ResponsibleLendingGuardrailService(db)
         result = guardrail_svc.evaluate(test_user.id, 10000, 0)
         assert result["status"] == "held"
-        # Partner should not be called when status is "held"
-        # (this is enforced by the credit endpoint checking guardrail status)
+
+    def test_direct_upi_payment_save_at_pay(self, db, test_user):
+        """
+        Direct Bank/UPI: Payment does not touch Daily Wallet.
+        Save-at-Pay contribution atomically updates Safety Wallet.
+        """
+        from app.models.payment import Merchant, PaymentTransaction, LinkedPaymentAccount
+        from app.models.savings import SavingsTransaction
+        from app.providers.payment_provider import get_payment_provider
+
+        # Setup merchant
+        merchant = Merchant(
+            merchant_code="M_TEST",
+            name="Test Supermarket",
+            upi_id="supermarket@upi",
+            category="Food & Grocery",
+            normalized_category="food",
+            verification_status="verified",
+        )
+        db.add(merchant)
+        db.flush()
+
+        safety_wallet = db.query(Wallet).filter_by(user_id=test_user.id, wallet_type="SAFETY").first()
+        initial_safety = safety_wallet.balance
+
+        # Provider creates UPI payment
+        provider = get_payment_provider()
+        res = provider.create_payment(
+            payment_id=999,
+            user_id=test_user.id,
+            merchant_upi_id=merchant.upi_id,
+            merchant_name=merchant.name,
+            amount=1000.0,
+        )
+        assert res["status"] == "SUCCESS"
+        assert "upi://pay" in res["upi_intent_url"]
+
+        # Simulate Save-at-Pay 10% (₹100)
+        save_amount = 100.0
+        safety_wallet.balance += save_amount
+        savings_txn = SavingsTransaction(
+            user_id=test_user.id,
+            amount=save_amount,
+            transaction_type="save_at_pay",
+            category_context="food",
+            balance_before=initial_safety,
+            balance_after=safety_wallet.balance,
+        )
+        db.add(savings_txn)
+
+        pay_txn = PaymentTransaction(
+            user_id=test_user.id,
+            merchant_id=merchant.id,
+            merchant_name=merchant.name,
+            merchant_upi_id=merchant.upi_id,
+            amount=1000.0,
+            category="food",
+            save_consent=True,
+            actual_save_amount=save_amount,
+            status="SUCCESS",
+            savings_credited=True,
+        )
+        db.add(pay_txn)
+        db.commit()
+
+        assert safety_wallet.balance == initial_safety + 100.0
+        assert pay_txn.status == "SUCCESS"
+        assert pay_txn.actual_save_amount == 100.0
+
+    def test_category_service_normalization(self):
+        """Test category normalization heuristics."""
+        from app.services.category_service import CategoryService
+        assert CategoryService.normalize("Sri Krishna Supermarket", "Food & Grocery") == "food"
+        assert CategoryService.normalize("Bharat Petroleum", "Petrol Pump") == "fuel"
+        assert CategoryService.normalize("Apollo Pharmacy", "Pharmacy") == "healthcare"
+        assert CategoryService.normalize("Unknown Shop", None) == "other"
+

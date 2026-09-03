@@ -163,20 +163,28 @@ def seed_database():
             db.add(arjun)
             db.flush()
 
-            # Create wallets
-            daily_wallet = Wallet(
-                user_id=arjun.id,
-                wallet_type="DAILY",
-                balance=12450.0,
-            )
+            # Create Safety wallet (Resilience Reserve)
             safety_wallet = Wallet(
                 user_id=arjun.id,
                 wallet_type="SAFETY",
                 balance=8200.0,
                 target_amount=10000.0,
             )
-            db.add(daily_wallet)
             db.add(safety_wallet)
+
+            # Linked Bank/UPI Account (Direct payment source)
+            from app.models.payment import LinkedPaymentAccount, Merchant
+            linked_acc = LinkedPaymentAccount(
+                user_id=arjun.id,
+                provider="upi",
+                upi_id="arjun@upi",
+                bank_name="HDFC Bank",
+                account_mask="****4821",
+                account_holder_name="Arjun Kumar",
+                status="connected",
+                is_primary=True,
+            )
+            db.add(linked_acc)
 
             # Savings preference
             savings_pref = SavingsPreference(
@@ -186,9 +194,48 @@ def seed_database():
             )
             db.add(savings_pref)
 
+        # ============================================================
+        # VERIFIED MERCHANTS (LEVELLY Pay)
+        # ============================================================
+        print("Creating verified merchants...")
+        from app.models.payment import Merchant, LinkedPaymentAccount
+        sample_merchants = [
+            {"code": "M001", "name": "Sri Krishna Supermarket", "upi": "srikrishna@upi", "cat": "Food & Grocery", "norm": "food"},
+            {"code": "M002", "name": "BikeCare Service Point", "upi": "bikecare@upi", "cat": "Vehicle Repair", "norm": "vehicle"},
+            {"code": "M003", "name": "City Fuel Station", "upi": "cityfuel@upi", "cat": "Petrol Station", "norm": "fuel"},
+            {"code": "M004", "name": "Apollo Pharmacy", "upi": "apollopharmacy@upi", "cat": "Healthcare & Pharmacy", "norm": "healthcare"},
+            {"code": "M005", "name": "Royal Cafe & Bakery", "upi": "royalcafe@upi", "cat": "Restaurant", "norm": "food"},
+        ]
+        for m in sample_merchants:
+            existing_m = db.query(Merchant).filter_by(merchant_code=m["code"]).first()
+            if not existing_m:
+                db.add(Merchant(
+                    merchant_code=m["code"],
+                    name=m["name"],
+                    upi_id=m["upi"],
+                    category=m["cat"],
+                    normalized_category=m["norm"],
+                    verification_status="verified",
+                ))
+
         else:
-            daily_wallet = db.query(Wallet).filter_by(user_id=arjun.id, wallet_type="DAILY").first()
             safety_wallet = db.query(Wallet).filter_by(user_id=arjun.id, wallet_type="SAFETY").first()
+            if not safety_wallet:
+                safety_wallet = Wallet(user_id=arjun.id, wallet_type="SAFETY", balance=8200.0, target_amount=10000.0)
+                db.add(safety_wallet)
+
+            existing_linked = db.query(LinkedPaymentAccount).filter_by(user_id=arjun.id).first()
+            if not existing_linked:
+                db.add(LinkedPaymentAccount(
+                    user_id=arjun.id,
+                    provider="upi",
+                    upi_id="arjun@upi",
+                    bank_name="HDFC Bank",
+                    account_mask="****4821",
+                    account_holder_name="Arjun Kumar",
+                    status="connected",
+                    is_primary=True,
+                ))
 
         db.flush()
 
