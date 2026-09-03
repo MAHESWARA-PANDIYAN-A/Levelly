@@ -59,6 +59,13 @@ class Settings(BaseSettings):
     # Above 0.30 = HIGH
 
     @property
+    def SQLALCHEMY_DATABASE_URI(self) -> str:
+        url = self.DATABASE_URL
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql://", 1)
+        return url
+
+    @property
     def CORS_ORIGINS_LIST(self) -> List[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
 

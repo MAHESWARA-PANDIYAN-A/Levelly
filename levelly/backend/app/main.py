@@ -26,6 +26,18 @@ async def lifespan(app: FastAPI):
     """Application lifespan - startup and shutdown."""
     # Startup
     print(f"[START] LEVELLY Backend starting - environment: {settings.APP_ENV}")
+    try:
+        from app import models  # noqa
+        Base.metadata.create_all(bind=engine)
+        from app.models.user import User
+        from app.core.database import SessionLocal
+        from app.seed import seed_database
+        with SessionLocal() as db:
+            if db.query(User).count() == 0:
+                print("[SEED] No users found. Auto-seeding initial database...")
+                seed_database()
+    except Exception as e:
+        print(f"[WARN] Database startup check: {e}")
     yield
     # Shutdown
     print("[STOP] LEVELLY Backend shutting down")
