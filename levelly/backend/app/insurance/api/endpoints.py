@@ -118,28 +118,36 @@ def list_insurance_plans(
     db: Session = Depends(get_db),
 ):
     """List all available parametric insurance plans."""
-    svc = InsuranceService(db)
-    plans = svc.get_plans()
-    return [
-        {
-            "id": p.id,
-            "name": p.name,
-            "code": p.code,
-            "description": p.description,
-            "premium": p.premium,
-            "premium_frequency": p.premium_frequency,
-            "coverage_limit": p.coverage_limit,
-            "policy_duration": p.policy_duration,
-            "covered_events": p.covered_events or [],
-            "trigger_conditions": p.trigger_conditions or {},
-            "waiting_period": p.waiting_period,
-            "exclusions": p.exclusions or [],
-            "coverage_area_rules": p.coverage_area_rules or {},
-            "active": p.active,
-            "partner_name": p.partner.name if p.partner else "SafeWork Protection Partner",
-        }
-        for p in plans
-    ]
+    try:
+        svc = InsuranceService(db)
+        plans = svc.get_plans()
+        return [
+            {
+                "id": p.id,
+                "name": p.name,
+                "code": p.code,
+                "description": p.description,
+                "premium": p.premium,
+                "premium_frequency": p.premium_frequency,
+                "coverage_limit": p.coverage_limit,
+                "policy_duration": p.policy_duration,
+                "covered_events": p.covered_events or [],
+                "trigger_conditions": p.trigger_conditions or {},
+                "waiting_period": p.waiting_period,
+                "exclusions": p.exclusions or [],
+                "coverage_area_rules": p.coverage_area_rules or {},
+                "active": p.active,
+                "partner_name": p.partner.name if p.partner else "SafeWork Protection Partner",
+            }
+            for p in plans
+        ]
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Insurance plans temporarily unavailable. Database error: {type(exc).__name__}",
+        ) from exc
 
 
 @router.get("/plans/{plan_id}", response_model=InsurancePlanOut)

@@ -33,9 +33,24 @@ async def lifespan(app: FastAPI):
             db.execute(text("SELECT 1"))
             print("[DATABASE] Connection verified successfully.")
 
-        if settings.APP_ENV == "production":
-            print("[SCHEMA] Production environment: Schema evolution is managed strictly via Alembic migrations.")
-        else:
+        # Always run migrations to ensure all tables (including insurance tables) exist
+        print("[SCHEMA] Running Alembic migrations (alembic upgrade head)...")
+        try:
+            import subprocess
+            import sys
+            result = subprocess.run(
+                [sys.executable, "-m", "alembic", "upgrade", "head"],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                print(f"[SCHEMA] Migrations applied successfully.\n{result.stdout}")
+            else:
+                print(f"[SCHEMA] Migration warning (returncode={result.returncode}):\n{result.stderr}")
+        except Exception as mig_err:
+            print(f"[SCHEMA] Could not run migrations automatically: {mig_err}")
+
+        if settings.APP_ENV != "production":
             # Development/local: Auto-seed if database is completely empty
             from app.models.user import User
             from app.seed import seed_database
