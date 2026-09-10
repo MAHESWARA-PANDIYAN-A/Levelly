@@ -29,28 +29,18 @@ async def lifespan(app: FastAPI):
     try:
         from sqlalchemy import text
         from app.core.database import SessionLocal
+
         with SessionLocal() as db:
             db.execute(text("SELECT 1"))
             print("[DATABASE] Connection verified successfully.")
 
-        # Always run migrations to ensure all tables (including insurance tables) exist
-        print("[SCHEMA] Running Alembic migrations (alembic upgrade head)...")
-        try:
-            from alembic.config import Config
-            from alembic import command as alembic_command
-
-            # Resolve alembic.ini relative to this file — works regardless of CWD on Render
-            _backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            _alembic_ini = os.path.join(_backend_dir, "alembic.ini")
-            alembic_cfg = Config(_alembic_ini)
-            # Override script_location to an absolute path so it never fails
-            alembic_cfg.set_main_option(
-                "script_location", os.path.join(_backend_dir, "alembic")
-            )
-            alembic_command.upgrade(alembic_cfg, "head")
-            print("[SCHEMA] Migrations applied successfully.")
-        except Exception as mig_err:
-            print(f"[SCHEMA] Migration warning: {mig_err}")
+        # Import ALL models so Base.metadata knows every table, then create any missing ones.
+        # create_all with checkfirst=True skips tables that already exist — safe for production.
+        print("[SCHEMA] Ensuring all tables exist (create_all with checkfirst)...")
+        import app.models  # noqa: F401 — registers all ORM models including insurance tables
+        import app.insurance.models  # noqa: F401
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+        print("[SCHEMA] All tables verified/created successfully.")
 
         if settings.APP_ENV != "production":
             # Development/local: Auto-seed if database is completely empty
@@ -62,7 +52,7 @@ async def lifespan(app: FastAPI):
                         print("[SEED] No users found. Seeding development database...")
                         seed_database()
                 except Exception as ex:
-                    print(f"[SEED] Tables not ready yet (run 'alembic upgrade head'): {ex}")
+                    print(f"[SEED] Seed skipped: {ex}")
     except Exception as e:
         print(f"[WARN] Database startup check: {e}")
     yield
