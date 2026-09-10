@@ -17,6 +17,16 @@ from app.models.payment import (
     QRPaymentSession,
     PaymentProviderEvent,
 )
+from app.insurance.models import (
+    InsurancePartner,
+    InsurancePlan,
+    InsurancePolicy,
+    InsuranceConsent,
+    InsuranceEvent,
+    InsuranceTriggerEvaluation,
+    InsurancePayout,
+    InsuranceDocument,
+)
 
 __all__ = [
     "User", "Wallet", "Transaction", "IncomeTransaction", "ExpenseTransaction",
@@ -26,4 +36,6 @@ __all__ = [
     "InvestmentProduct", "InvestmentSuggestion", "InvestmentConsent", "InvestmentOrder",
     "Notification", "CoachConversation", "AuditLog",
     "LinkedPaymentAccount", "Merchant", "PaymentTransaction", "QRPaymentSession", "PaymentProviderEvent",
+    "InsurancePartner", "InsurancePlan", "InsurancePolicy", "InsuranceConsent",
+    "InsuranceEvent", "InsuranceTriggerEvaluation", "InsurancePayout", "InsuranceDocument",
 ]

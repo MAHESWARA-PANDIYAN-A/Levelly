@@ -12,7 +12,8 @@ import {
   RefreshCw, 
   Search, 
   Check, 
-  ShieldCheck 
+  ShieldCheck,
+  Umbrella 
 } from 'lucide-react'
 import { adminAPI } from '../lib/api'
 import { useAuthStore } from '../store/authStore'
@@ -23,7 +24,7 @@ export default function AdminDashboardPage() {
   const queryClient = useQueryClient()
   const { user, clearAuth } = useAuthStore()
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'policies' | 'investments' | 'audit'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'policies' | 'investments' | 'audit' | 'insurance'>('overview')
   const [searchTerm, setSearchTerm] = useState('')
   const [distressFilter, setDistressFilter] = useState<string>('ALL')
   const [editingCategory, setEditingCategory] = useState<string | null>(null)
@@ -57,6 +58,17 @@ export default function AdminDashboardPage() {
   const { data: auditLogs, isLoading: loadingAudit } = useQuery({
     queryKey: ['admin-audit-logs'],
     queryFn: () => adminAPI.getAuditLogs(50).then(r => r.data),
+  })
+
+  // 6. Insurance Overview & Policies
+  const { data: insuranceOverview, isLoading: loadingInsurance } = useQuery({
+    queryKey: ['admin-insurance-overview'],
+    queryFn: () => adminAPI.getInsuranceOverview().then(r => r.data),
+  })
+
+  const { data: insurancePolicies, isLoading: loadingInsurancePolicies } = useQuery({
+    queryKey: ['admin-insurance-policies'],
+    queryFn: () => adminAPI.getInsurancePolicies(50).then(r => r.data),
   })
 
   // Mutation for updating category policy
@@ -134,6 +146,7 @@ export default function AdminDashboardPage() {
             { id: 'users', label: 'User Risk Profiles', icon: Users },
             { id: 'policies', label: 'Save-at-Pay Policies', icon: Sliders },
             { id: 'investments', label: 'Investment Products', icon: TrendingUp },
+            { id: 'insurance', label: 'IncomeShield Protection', icon: Umbrella },
             { id: 'audit', label: 'Compliance Audit Trail', icon: FileText },
           ].map(tab => {
             const Icon = tab.icon
@@ -514,6 +527,198 @@ export default function AdminDashboardPage() {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB: INCOMESHIELD PROTECTION */}
+        {activeTab === 'insurance' && (
+          <div className="space-y-6">
+            {/* KPI Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Policies</p>
+                <p className="text-2xl font-black text-gray-900 mt-1">
+                  {loadingInsurance ? '...' : insuranceOverview?.total_policies ?? 0}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">Underwritten via Partner</p>
+              </div>
+
+              <div className="bg-sky-50 p-4 rounded-2xl border border-sky-200 shadow-sm">
+                <p className="text-xs font-semibold text-sky-800 uppercase tracking-wider">Active Protection</p>
+                <p className="text-2xl font-black text-sky-700 mt-1">
+                  {loadingInsurance ? '...' : insuranceOverview?.active_policies ?? 0}
+                </p>
+                <p className="text-xs text-sky-600 mt-1">Gig workers currently covered</p>
+              </div>
+
+              <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200 shadow-sm">
+                <p className="text-xs font-semibold text-amber-800 uppercase tracking-wider">Disruption Events</p>
+                <p className="text-2xl font-black text-amber-700 mt-1">
+                  {loadingInsurance ? '...' : insuranceOverview?.total_events ?? 0}
+                </p>
+                <p className="text-xs text-amber-600 mt-1">Environmental telemetry logs</p>
+              </div>
+
+              <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-200 shadow-sm">
+                <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">Disbursed Payouts</p>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <span className="text-2xl font-black text-emerald-700">
+                    ₹{loadingInsurance ? '...' : insuranceOverview?.total_payout_amount ?? 0}
+                  </span>
+                  <span className="text-xs text-emerald-600 font-medium">
+                    ({insuranceOverview?.completed_payouts ?? 0} claims)
+                  </span>
+                </div>
+                <p className="text-xs text-emerald-600 mt-1">Settled into linked user accounts</p>
+              </div>
+            </div>
+
+            {/* Registered Policies Table */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">IncomeShield Policies Roster</h2>
+                  <p className="text-xs text-gray-500">Live active policies, coverage limits, and registered work zones</p>
+                </div>
+                <span className="text-xs font-bold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-200">
+                  Parametric Protection
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 text-[11px] font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                      <th className="py-3 px-5">Policy #</th>
+                      <th className="py-3 px-5">User</th>
+                      <th className="py-3 px-5">Plan</th>
+                      <th className="py-3 px-5">Status</th>
+                      <th className="py-3 px-5">Coverage Limit</th>
+                      <th className="py-3 px-5">Premium</th>
+                      <th className="py-3 px-5">Work Zone</th>
+                      <th className="py-3 px-5">Valid Until</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 text-xs">
+                    {loadingInsurancePolicies ? (
+                      <tr>
+                        <td colSpan={8} className="py-8 text-center text-gray-400">Loading insurance policies...</td>
+                      </tr>
+                    ) : (insurancePolicies || []).length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-8 text-center text-gray-400">No active insurance policies registered yet.</td>
+                      </tr>
+                    ) : (
+                      insurancePolicies.map((pol: any) => (
+                        <tr key={pol.id} className="hover:bg-gray-50/80 transition">
+                          <td className="py-3 px-5 font-mono font-bold text-slate-800">
+                            {pol.policy_number}
+                          </td>
+                          <td className="py-3 px-5 text-gray-600 font-mono">
+                            User #{pol.user_id}
+                          </td>
+                          <td className="py-3 px-5 font-medium text-gray-900">
+                            {pol.plan_name}
+                          </td>
+                          <td className="py-3 px-5">
+                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                              pol.status === 'ACTIVE' 
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : pol.status === 'PENDING'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-gray-100 text-gray-600'
+                            }`}>
+                              {pol.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-5 font-semibold text-gray-900">
+                            ₹{pol.coverage_limit?.toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-3 px-5 text-gray-600">
+                            ₹{pol.premium}/wk
+                          </td>
+                          <td className="py-3 px-5 text-gray-600">
+                            {pol.covered_work_zone}
+                          </td>
+                          <td className="py-3 px-5 text-gray-500 font-mono text-[11px]">
+                            {pol.end_date ? new Date(pol.end_date).toLocaleDateString() : 'N/A'}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Trigger Evaluations Table */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="p-5 border-b border-gray-100">
+                <h2 className="text-lg font-bold text-gray-900">Recent Trigger Evaluations & Claims Flow</h2>
+                <p className="text-xs text-gray-500">Telemetry checks against policy conditions. Parametric rules ensure zero claim guarantees without reached thresholds.</p>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 text-[11px] font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                      <th className="py-3 px-5">Evaluated At</th>
+                      <th className="py-3 px-5">Policy ID</th>
+                      <th className="py-3 px-5">Event ID</th>
+                      <th className="py-3 px-5">Trigger Type</th>
+                      <th className="py-3 px-5">Status</th>
+                      <th className="py-3 px-5">Observed vs Required</th>
+                      <th className="py-3 px-5">Partner Rationale</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 text-xs font-mono">
+                    {loadingInsurance ? (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-gray-400 font-sans">Loading evaluations...</td>
+                      </tr>
+                    ) : (insuranceOverview?.recent_evaluations || []).length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-gray-400 font-sans">No trigger evaluations recorded yet.</td>
+                      </tr>
+                    ) : (
+                      insuranceOverview.recent_evaluations.map((ev: any) => (
+                        <tr key={ev.id} className="hover:bg-gray-50/80 transition">
+                          <td className="py-3 px-5 text-gray-500 text-[11px]">
+                            {ev.evaluated_at ? new Date(ev.evaluated_at).toLocaleString() : 'N/A'}
+                          </td>
+                          <td className="py-3 px-5 text-slate-700 font-bold">
+                            #{ev.policy_id}
+                          </td>
+                          <td className="py-3 px-5 text-gray-600">
+                            #{ev.event_id}
+                          </td>
+                          <td className="py-3 px-5 text-gray-800 font-sans font-medium">
+                            {ev.trigger_type}
+                          </td>
+                          <td className="py-3 px-5 font-sans">
+                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                              ev.status === 'REACHED'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : ev.status === 'NOT_REACHED'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-rose-100 text-rose-800'
+                            }`}>
+                              {ev.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-5 text-slate-600">
+                            {ev.observed_value} / {ev.required_value}
+                          </td>
+                          <td className="py-3 px-5 text-gray-500 font-sans text-xs">
+                            {ev.reason}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}

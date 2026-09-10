@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 days
 
     # Database
-    DATABASE_URL: str = "postgresql://levelly:levelly123@localhost:5432/levelly_db"
+    DATABASE_URL: str = ""
 
     # CORS
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
@@ -39,6 +39,16 @@ class Settings(BaseSettings):
     INVESTMENT_API_URL: Optional[str] = None
     INVESTMENT_API_KEY: Optional[str] = None
 
+    # Insurance & Disruption Providers (IncomeShield)
+    INSURANCE_PROVIDER: str = "mock"
+    INSURANCE_PROVIDER_API_URL: Optional[str] = None
+    INSURANCE_PROVIDER_KEY: Optional[str] = None
+    INSURANCE_PROVIDER_SECRET: Optional[str] = None
+
+    DISRUPTION_PROVIDER: str = "mock"
+    DISRUPTION_PROVIDER_API_URL: Optional[str] = None
+    DISRUPTION_PROVIDER_KEY: Optional[str] = None
+
     # Rate limiting
     RATE_LIMIT_REQUESTS: int = 100
     RATE_LIMIT_WINDOW: int = 60
@@ -60,7 +70,19 @@ class Settings(BaseSettings):
 
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
-        url = self.DATABASE_URL
+        url = self.DATABASE_URL.strip() if self.DATABASE_URL else ""
+        if not url:
+            if self.APP_ENV == "test":
+                return "sqlite:///:memory:"
+            raise ValueError(
+                "DATABASE_URL is not set. Please configure a valid PostgreSQL DATABASE_URL in your environment or .env file."
+            )
+
+        if url.startswith("sqlite") and self.APP_ENV != "test":
+            raise ValueError(
+                f"SQLite is not permitted in {self.APP_ENV} environment. A PostgreSQL database connection is required."
+            )
+
         if url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql://", 1)
         return url
@@ -70,7 +92,7 @@ class Settings(BaseSettings):
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
 
     class Config:
-        env_file = ".env"
+        env_file = (".env", "backend/.env", "../.env")
         case_sensitive = True
         extra = "ignore"
 

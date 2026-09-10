@@ -77,12 +77,10 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
     db.add(user)
     db.flush()
 
-    # Create Daily and Safety wallets
-    daily_wallet = Wallet(user_id=user.id, wallet_type="DAILY", balance=0.0)
+    # Create Safety wallet (Dedicated financial resilience reserve)
     safety_wallet = Wallet(
         user_id=user.id, wallet_type="SAFETY", balance=0.0, target_amount=10000.0
     )
-    db.add(daily_wallet)
     db.add(safety_wallet)
 
     # Create savings preference

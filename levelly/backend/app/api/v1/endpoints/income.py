@@ -11,7 +11,6 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.user import User
 from app.models.transaction import IncomeTransaction
-from app.models.wallet import Wallet
 from app.engines.income_intelligence import IncomeIntelligenceService
 from app.engines.expense_engine import ExpenseEngine
 from app.engines.resilience_engine import FinancialResilienceService
@@ -53,19 +52,6 @@ def add_income(
     )
     db.add(income_txn)
 
-    # Add to daily wallet
-    daily_wallet = (
-        db.query(Wallet)
-        .filter(
-            Wallet.user_id == current_user.id,
-            Wallet.wallet_type == "DAILY",
-            Wallet.is_active == True,
-        )
-        .first()
-    )
-    if daily_wallet:
-        daily_wallet.balance = round(daily_wallet.balance + request.amount, 2)
-
     # Audit
     audit = AuditLog(
         user_id=current_user.id,
@@ -104,8 +90,8 @@ def add_income(
         "success": True,
         "income_id": income_txn.id,
         "amount": request.amount,
-        "daily_wallet_balance": daily_wallet.balance if daily_wallet else 0,
-        "message": f"₹{request.amount:,.0f} added to Daily Wallet.",
+        "source": request.source,
+        "message": f"₹{request.amount:,.0f} income recorded to your linked account.",
     }
 
 

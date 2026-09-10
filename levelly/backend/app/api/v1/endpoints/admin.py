@@ -234,3 +234,87 @@ def get_audit_logs(
         }
         for l in logs
     ]
+
+
+# ============================================================
+# INCOMESHIELD INSURANCE ADMINISTRATION
+# ============================================================
+
+@router.get("/insurance/overview")
+def get_insurance_overview(
+    admin=Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Aggregated administration overview for IncomeShield policies and claims."""
+    from app.insurance.models import (
+        InsurancePolicy,
+        InsurancePlan,
+        InsuranceEvent,
+        InsurancePayout,
+        InsuranceTriggerEvaluation,
+    )
+    total_policies = db.query(InsurancePolicy).count()
+    active_policies = db.query(InsurancePolicy).filter_by(status="ACTIVE").count()
+    total_events = db.query(InsuranceEvent).count()
+    total_payouts = db.query(InsurancePayout).count()
+    completed_payouts = db.query(InsurancePayout).filter_by(status="COMPLETED").count()
+
+    from sqlalchemy import func
+    total_payout_amount = db.query(func.sum(InsurancePayout.amount)).filter(InsurancePayout.status == "COMPLETED").scalar() or 0.0
+
+    recent_evaluations = (
+        db.query(InsuranceTriggerEvaluation)
+        .order_by(InsuranceTriggerEvaluation.evaluated_at.desc())
+        .limit(10)
+        .all()
+    )
+
+    return {
+        "total_policies": total_policies,
+        "active_policies": active_policies,
+        "total_events": total_events,
+        "total_payouts": total_payouts,
+        "completed_payouts": completed_payouts,
+        "total_payout_amount": round(total_payout_amount, 2),
+        "recent_evaluations": [
+            {
+                "id": e.id,
+                "policy_id": e.policy_id,
+                "event_id": e.event_id,
+                "trigger_type": e.trigger_type,
+                "status": e.status,
+                "observed_value": e.observed_value,
+                "required_value": e.required_value,
+                "reason": e.reason,
+                "evaluated_at": e.evaluated_at.isoformat() if e.evaluated_at else None,
+            }
+            for e in recent_evaluations
+        ],
+    }
+
+
+@router.get("/insurance/policies")
+def list_insurance_policies(
+    admin=Depends(get_current_admin),
+    db: Session = Depends(get_db),
+    limit: int = 50,
+):
+    """List all registered user insurance policies."""
+    from app.insurance.models import InsurancePolicy
+    policies = db.query(InsurancePolicy).order_by(InsurancePolicy.created_at.desc()).limit(limit).all()
+    return [
+        {
+            "id": p.id,
+            "user_id": p.user_id,
+            "policy_number": p.policy_number,
+            "plan_name": p.plan.name if p.plan else "Unknown",
+            "status": p.status,
+            "start_date": p.start_date.isoformat() if p.start_date else None,
+            "end_date": p.end_date.isoformat() if p.end_date else None,
+            "coverage_limit": p.coverage_limit,
+            "premium": p.premium,
+            "covered_work_zone": p.covered_work_zone,
+        }
+        for p in policies
+    ]
+

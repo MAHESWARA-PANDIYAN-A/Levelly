@@ -19,6 +19,17 @@ import AdminDashboardPage from './pages/AdminDashboardPage'
 
 import SafetyWalletPage from './pages/SafetyWalletPage'
 
+// IncomeShield Insurance Module
+import IncomeShieldHomePage from './insurance/pages/IncomeShieldHomePage'
+import HowItWorksPage from './insurance/pages/HowItWorksPage'
+import PersonalizedProtectionPage from './insurance/pages/PersonalizedProtectionPage'
+import PlansPage from './insurance/pages/PlansPage'
+import PlanDetailPage from './insurance/pages/PlanDetailPage'
+import PurchaseReviewPage from './insurance/pages/PurchaseReviewPage'
+import ActivePolicyPage from './insurance/pages/ActivePolicyPage'
+import EventMonitoringPage from './insurance/pages/EventMonitoringPage'
+import PayoutStatusPage from './insurance/pages/PayoutStatusPage'
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuthStore()
   if (!isAuthenticated) return <Navigate to="/login" replace />
@@ -71,6 +82,20 @@ export default function App() {
         <Route path="transactions" element={<TransactionsPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="income" element={<IncomePage />} />
+
+        {/* LEVELLY IncomeShield Native Module */}
+        <Route path="incomeshield" element={<IncomeShieldHomePage />} />
+        <Route path="incomeshield/how-it-works" element={<HowItWorksPage />} />
+        <Route path="incomeshield/personalized" element={<PersonalizedProtectionPage />} />
+        <Route path="incomeshield/personalized/:planId" element={<PersonalizedProtectionPage />} />
+        <Route path="incomeshield/plans" element={<PlansPage />} />
+        <Route path="incomeshield/plans/:planId" element={<PlanDetailPage />} />
+        <Route path="incomeshield/review/:planId" element={<PurchaseReviewPage />} />
+        <Route path="incomeshield/purchase-review/:planId" element={<PurchaseReviewPage />} />
+        <Route path="incomeshield/policy" element={<ActivePolicyPage />} />
+        <Route path="incomeshield/events/:eventId" element={<EventMonitoringPage />} />
+        <Route path="incomeshield/payouts/:payoutId" element={<PayoutStatusPage />} />
+        <Route path="insurance" element={<Navigate to="/incomeshield" replace />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

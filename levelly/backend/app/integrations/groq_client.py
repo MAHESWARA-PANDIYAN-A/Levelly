@@ -58,6 +58,12 @@ STRICT RULES:
 - When uncertain, say you'll help them find more information rather than inventing details
 - You are NOT a financial advisor. Always mention consulting a qualified financial advisor for major decisions.
 
+FORMATTING GUIDELINES:
+- Format your response with clear markdown paragraphs separated by blank lines.
+- Place section headings (e.g. "**When will they reopen?**" or "**What you can do now:**") on their own line with a blank line before and after.
+- Put each bullet point (- item) and numbered step (1. item) on its own separate line.
+- Never concatenate headings, bullet points, or list items into a single run-on paragraph.
+
 User context will be provided in each message. Use it to give personalized responses.
 Do not contradict the financial data provided in the context."""
 
@@ -141,6 +147,11 @@ async def get_coach_response(
         )
 
         coach_reply = response.choices[0].message.content.strip()
+        import re
+        coach_reply = re.sub(r'([.!?]|\))\s+(\*\*[A-Z0-9][^*]+\*\*)', r'\1\n\n\2\n\n', coach_reply)
+        coach_reply = re.sub(r'(\*\*[A-Z0-9][^*]+\*\*)\s+(?=\d+\.|\-|\*)', r'\1\n\n', coach_reply)
+        coach_reply = re.sub(r'([.!?]|\))\s+([•\-*])\s+', r'\1\n\n- ', coach_reply)
+        coach_reply = re.sub(r'([.!?]|\))\s+(\d+)\.\s+', r'\1\n\n\2. ', coach_reply)
 
         return {
             "response": coach_reply,
@@ -157,7 +168,9 @@ def _get_fallback_response(user_message: str) -> Dict[str, Any]:
     """Return a contextual fallback response when AI is unavailable."""
     message_lower = user_message.lower()
 
-    if any(word in message_lower for word in ["sav", "wallet", "safety"]):
+    if "why" in message_lower and any(w in message_lower for w in ["invest", "product", "see", "seeing"]):
+        response = "Your Safety Wallet is currently above your target and your recent financial position is stable, so LEVELLY is showing optional products for your surplus."
+    elif any(word in message_lower for word in ["sav", "wallet", "safety"]):
         response = FALLBACK_RESPONSES["savings"]
     elif any(word in message_lower for word in ["credit", "loan", "borrow"]):
         response = FALLBACK_RESPONSES["credit"]

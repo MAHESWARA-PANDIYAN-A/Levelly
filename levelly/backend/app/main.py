@@ -27,15 +27,25 @@ async def lifespan(app: FastAPI):
     # Startup
     print(f"[START] LEVELLY Backend starting - environment: {settings.APP_ENV}")
     try:
-        from app import models  # noqa
-        Base.metadata.create_all(bind=engine)
-        from app.models.user import User
+        from sqlalchemy import text
         from app.core.database import SessionLocal
-        from app.seed import seed_database
         with SessionLocal() as db:
-            if db.query(User).count() == 0:
-                print("[SEED] No users found. Auto-seeding initial database...")
-                seed_database()
+            db.execute(text("SELECT 1"))
+            print("[DATABASE] Connection verified successfully.")
+
+        if settings.APP_ENV == "production":
+            print("[SCHEMA] Production environment: Schema evolution is managed strictly via Alembic migrations.")
+        else:
+            # Development/local: Auto-seed if database is completely empty
+            from app.models.user import User
+            from app.seed import seed_database
+            with SessionLocal() as db:
+                try:
+                    if db.query(User).count() == 0:
+                        print("[SEED] No users found. Seeding development database...")
+                        seed_database()
+                except Exception as ex:
+                    print(f"[SEED] Tables not ready yet (run 'alembic upgrade head'): {ex}")
     except Exception as e:
         print(f"[WARN] Database startup check: {e}")
     yield
@@ -66,8 +76,22 @@ def create_application() -> FastAPI:
 
     # Health check
     @app.get("/health", tags=["System"])
+    @app.get("/api/health", tags=["System"])
     async def health_check():
-        return {"status": "healthy", "service": "LEVELLY API", "version": "1.0.0"}
+        db_status = "connected"
+        try:
+            from sqlalchemy import text
+            from app.core.database import SessionLocal
+            with SessionLocal() as db:
+                db.execute(text("SELECT 1"))
+        except Exception as e:
+            db_status = f"error: {e}"
+        return {
+            "status": "healthy" if db_status == "connected" else "degraded",
+            "service": "LEVELLY API",
+            "version": "1.0.0",
+            "database": db_status,
+        }
 
     # Include API router
     app.include_router(api_router, prefix="/api")

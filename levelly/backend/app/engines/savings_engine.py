@@ -19,10 +19,12 @@ DEFAULT_CATEGORY_PERCENTAGES = {
     "shopping": 10.0,
     "family": 5.0,
     "healthcare": 5.0,
+    "bills": 5.0,
+    "vehicle": 5.0,
     "rent": 0.0,    # Rent is typically fixed, no save suggestion
-    "bills": 0.0,   # Bills are fixed
     "other": 5.0,
 }
+
 
 
 class SavingsEngine:

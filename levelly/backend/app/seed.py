@@ -7,6 +7,13 @@ State B (Financial Pressure): Declining income, high distress, below target
 The application shows whichever state the backend computes from transactions.
 """
 import sys
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -14,6 +21,7 @@ from pathlib import Path
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from app.core.config import settings
 from app.core.database import engine, SessionLocal, Base
 from app.core.security import hash_password
 from app.models.user import User
@@ -39,26 +47,28 @@ def seed_database():
         print("🌱 LEVELLY Database Seeder Starting...")
 
         # ============================================================
-        # CREATE TABLES
+        # SCHEMA CHECK (Production uses Alembic migrations)
         # ============================================================
-        print("Creating tables...")
-        Base.metadata.create_all(bind=engine)
+        if settings.APP_ENV != "production":
+            print("Checking schema (development fallback)...")
+            Base.metadata.create_all(bind=engine)
 
         # ============================================================
         # CATEGORY SAVING POLICIES
         # ============================================================
         print("Creating category saving policies...")
         categories = [
-            {"category": "food", "base": 10.0, "min": 0.0, "max": 15.0},
-            {"category": "fuel", "base": 5.0, "min": 0.0, "max": 10.0},
-            {"category": "education", "base": 8.0, "min": 0.0, "max": 12.0},
-            {"category": "entertainment", "base": 5.0, "min": 0.0, "max": 10.0},
-            {"category": "shopping", "base": 10.0, "min": 0.0, "max": 15.0},
-            {"category": "family", "base": 5.0, "min": 0.0, "max": 10.0},
-            {"category": "healthcare", "base": 5.0, "min": 0.0, "max": 10.0},
+            {"category": "food", "base": 10.0, "min": 0.0, "max": 20.0},
+            {"category": "fuel", "base": 5.0, "min": 0.0, "max": 15.0},
+            {"category": "education", "base": 8.0, "min": 0.0, "max": 15.0},
+            {"category": "entertainment", "base": 5.0, "min": 0.0, "max": 15.0},
+            {"category": "shopping", "base": 10.0, "min": 0.0, "max": 20.0},
+            {"category": "family", "base": 5.0, "min": 0.0, "max": 15.0},
+            {"category": "healthcare", "base": 5.0, "min": 0.0, "max": 15.0},
+            {"category": "bills", "base": 5.0, "min": 0.0, "max": 15.0},
+            {"category": "vehicle", "base": 5.0, "min": 0.0, "max": 15.0},
             {"category": "rent", "base": 0.0, "min": 0.0, "max": 5.0},
-            {"category": "bills", "base": 0.0, "min": 0.0, "max": 5.0},
-            {"category": "other", "base": 5.0, "min": 0.0, "max": 10.0},
+            {"category": "other", "base": 5.0, "min": 0.0, "max": 15.0},
         ]
 
         for cat in categories:
@@ -72,74 +82,110 @@ def seed_database():
                     description=f"Default save-at-pay percentage for {cat['category']}",
                 )
                 db.add(policy)
+            else:
+                # Update default policy only if not customized by an admin
+                if existing.updated_by_admin_id is None:
+                    existing.base_percentage = cat["base"]
+                    existing.min_percentage = cat["min"]
+                    existing.max_percentage = cat["max"]
+                    existing.is_active = True
+        db.commit()
 
+        # ============================================================
         # ============================================================
         # INVESTMENT PRODUCTS
         # ============================================================
         print("Creating investment products...")
-        existing_products = db.query(InvestmentProduct).count()
-        if existing_products == 0:
-            products = [
-                InvestmentProduct(
-                    name="High-Yield Savings Account",
-                    product_type="LIQUID_SAVINGS",
-                    issuer="Partner Bank (Demo)",
-                    risk_level="LOW",
-                    liquidity="High — withdraw anytime",
-                    holding_period="No lock-in",
-                    interest_or_coupon="Indicative: 6-7% p.a. (subject to change)",
-                    fees="No fees (Demo)",
-                    tax_notes="Interest taxable as per income slab",
-                    terms="Terms apply. Rates are indicative and may change.",
-                    min_investment=1000.0,
-                    description=(
-                        "A savings account with higher-than-standard interest rates. "
-                        "Fully liquid — your money is accessible at any time."
-                    ),
-                    suitable_for="Users who want liquidity with better returns than a standard account",
-                    active=True,
+        all_seed_products = [
+            InvestmentProduct(
+                name="High-Yield Savings Account",
+                product_type="LIQUID_SAVINGS",
+                issuer="Partner Bank (Demo)",
+                risk_level="LOW",
+                liquidity="High — withdraw anytime",
+                holding_period="No lock-in",
+                interest_or_coupon="Indicative: 6-7% p.a. (subject to change)",
+                fees="No fees (Demo)",
+                tax_notes="Interest taxable as per income slab",
+                terms="Terms apply. Rates are indicative and may change.",
+                min_investment=500.0,
+                description=(
+                    "A savings account with higher-than-standard interest rates. "
+                    "Fully liquid — your money is accessible at any time."
                 ),
-                InvestmentProduct(
-                    name="Government Securities (G-Sec) — Demo",
-                    product_type="GOVERNMENT_SECURITY",
-                    issuer="Government of India (Demo)",
-                    risk_level="LOW",
-                    liquidity="Medium — tradeable on secondary market",
-                    holding_period="1-5 years (varies by security)",
-                    interest_or_coupon="Indicative: ~7.1% p.a. (coupon varies by issuance)",
-                    fees="Minimal brokerage",
-                    tax_notes="Interest taxable. Capital gains may apply on sale.",
-                    terms="G-Secs are issued by RBI. Demo product only — actual terms at partner.",
-                    min_investment=10000.0,
-                    description=(
-                        "Government securities are debt instruments issued by the Central Government. "
-                        "They carry no credit risk from the government. Interest rates vary by issuance."
-                    ),
-                    suitable_for="Users with safety surplus seeking stable returns over 1+ year",
-                    active=True,
+                suitable_for="Users who want liquidity with better returns than a standard account",
+                active=True,
+            ),
+            InvestmentProduct(
+                name="Government Securities (G-Sec) — Demo",
+                product_type="GOVERNMENT_SECURITY",
+                issuer="Government of India (Demo)",
+                risk_level="LOW",
+                liquidity="Medium — tradeable on secondary market",
+                holding_period="1-5 years (varies by security)",
+                interest_or_coupon="Indicative: ~7.1% p.a. (coupon varies by issuance)",
+                fees="Minimal brokerage",
+                tax_notes="Interest taxable. Capital gains may apply on sale.",
+                terms="G-Secs are issued by RBI. Demo product only — actual terms at partner.",
+                min_investment=1000.0,
+                description=(
+                    "Government securities are debt instruments issued by the Central Government. "
+                    "They carry no credit risk from the government. Interest rates vary by issuance."
                 ),
-                InvestmentProduct(
-                    name="Short-Duration Debt Fund — Demo",
-                    product_type="DEBT_ORIENTED",
-                    issuer="Demo Asset Management Co.",
-                    risk_level="MODERATE",
-                    liquidity="Medium — T+1 redemption",
-                    holding_period="6 months to 1 year recommended",
-                    interest_or_coupon="Variable — depends on market (historical range: 6-8% p.a.)",
-                    fees="Exit load may apply within 3 months",
-                    tax_notes="Gains taxed as per holding period — consult a tax advisor",
-                    terms="Mutual fund investments are subject to market risk. Demo product only.",
-                    min_investment=500.0,
-                    description=(
-                        "A debt-oriented mutual fund investing in short-term fixed income instruments. "
-                        "Returns vary based on interest rate movements and credit quality."
-                    ),
-                    suitable_for="Users comfortable with moderate risk seeking better returns than FD",
-                    active=True,
+                suitable_for="Users with safety surplus seeking stable returns over 1+ year",
+                active=True,
+            ),
+            InvestmentProduct(
+                name="Fixed-Income Term Deposit (AAA Rated) — Demo",
+                product_type="FIXED_INCOME",
+                issuer="HDFC / Bajaj Finance (Demo)",
+                risk_level="LOW",
+                liquidity="Low — 12 month tenure",
+                holding_period="12 months lock-in",
+                interest_or_coupon="Indicative: ~7.25% p.a.",
+                fees="Nil",
+                tax_notes="Interest taxable as per income slab",
+                terms="Fixed interest rate locked for the entire tenure. Demo product only.",
+                min_investment=1000.0,
+                description="A fixed-income term deposit offering assured returns with capital safety from AAA-rated institutions.",
+                suitable_for="Workers with surplus funds looking for predictable, stable returns without market risk.",
+                active=True,
+            ),
+            InvestmentProduct(
+                name="Short-Duration Debt Fund — Demo",
+                product_type="DEBT_ORIENTED",
+                issuer="Demo Asset Management Co.",
+                risk_level="MODERATE",
+                liquidity="Medium — T+1 redemption",
+                holding_period="6 months to 1 year recommended",
+                interest_or_coupon="Variable — depends on market (historical range: 6-8% p.a.)",
+                fees="Exit load may apply within 3 months",
+                tax_notes="Gains taxed as per holding period — consult a tax advisor",
+                terms="Mutual fund investments are subject to market risk. Demo product only.",
+                min_investment=500.0,
+                description=(
+                    "A debt-oriented mutual fund investing in short-term fixed income instruments. "
+                    "Returns vary based on interest rate movements and credit quality."
                 ),
-            ]
-            for p in products:
-                db.add(p)
+                suitable_for="Users comfortable with moderate risk seeking better returns than FD",
+                active=True,
+            ),
+        ]
+        for prod in all_seed_products:
+            existing_prod = db.query(InvestmentProduct).filter_by(product_type=prod.product_type).first()
+            if not existing_prod:
+                db.add(prod)
+            else:
+                existing_prod.active = True
+                existing_prod.name = prod.name
+                existing_prod.min_investment = prod.min_investment
+                existing_prod.holding_period = prod.holding_period
+                existing_prod.liquidity = prod.liquidity
+                existing_prod.risk_level = prod.risk_level
+                existing_prod.interest_or_coupon = prod.interest_or_coupon
+                existing_prod.description = prod.description
+                existing_prod.suitable_for = prod.suitable_for
+        db.commit()
 
         # ============================================================
         # ARJUN KUMAR — PRIMARY DEMO USER
@@ -167,7 +213,7 @@ def seed_database():
             safety_wallet = Wallet(
                 user_id=arjun.id,
                 wallet_type="SAFETY",
-                balance=8200.0,
+                balance=10500.0,
                 target_amount=10000.0,
             )
             db.add(safety_wallet)
@@ -201,8 +247,8 @@ def seed_database():
         from app.models.payment import Merchant, LinkedPaymentAccount
         sample_merchants = [
             {"code": "M001", "name": "Sri Krishna Supermarket", "upi": "srikrishna@upi", "cat": "Food & Grocery", "norm": "food"},
-            {"code": "M002", "name": "BikeCare Service Point", "upi": "bikecare@upi", "cat": "Vehicle Repair", "norm": "vehicle"},
-            {"code": "M003", "name": "City Fuel Station", "upi": "cityfuel@upi", "cat": "Petrol Station", "norm": "fuel"},
+            {"code": "M002", "name": "BikeCare Service", "upi": "bikecare@upi", "cat": "Vehicle Repair", "norm": "vehicle"},
+            {"code": "M003", "name": "City Fuel Point", "upi": "cityfuel@upi", "cat": "Fuel", "norm": "fuel"},
             {"code": "M004", "name": "Apollo Pharmacy", "upi": "apollopharmacy@upi", "cat": "Healthcare & Pharmacy", "norm": "healthcare"},
             {"code": "M005", "name": "Royal Cafe & Bakery", "upi": "royalcafe@upi", "cat": "Restaurant", "norm": "food"},
         ]
@@ -217,12 +263,20 @@ def seed_database():
                     normalized_category=m["norm"],
                     verification_status="verified",
                 ))
+            else:
+                existing_m.name = m["name"]
+                existing_m.upi_id = m["upi"]
+                existing_m.category = m["cat"]
+                existing_m.normalized_category = m["norm"]
 
         else:
             safety_wallet = db.query(Wallet).filter_by(user_id=arjun.id, wallet_type="SAFETY").first()
             if not safety_wallet:
-                safety_wallet = Wallet(user_id=arjun.id, wallet_type="SAFETY", balance=8200.0, target_amount=10000.0)
+                safety_wallet = Wallet(user_id=arjun.id, wallet_type="SAFETY", balance=10500.0, target_amount=10000.0)
                 db.add(safety_wallet)
+            else:
+                safety_wallet.balance = 10500.0
+                safety_wallet.target_amount = 10000.0
 
             existing_linked = db.query(LinkedPaymentAccount).filter_by(user_id=arjun.id).first()
             if not existing_linked:
@@ -441,47 +495,47 @@ def seed_database():
             profile = FinancialProfile(
                 user_id=arjun.id,
                 historical_avg_income=24000.0,
-                recent_income=15000.0,  # State B — Financial Pressure
-                income_trend="declining",
-                income_decline_pct=37.5,
-                income_volatility=0.22,
-                income_volatility_level="MODERATE",
-                consecutive_low_periods=3,
+                recent_income=24500.0,  # Healthy Arjun State (Low Distress, Target Met)
+                income_trend="stable",
+                income_decline_pct=0.0,
+                income_volatility=0.08,
+                income_volatility_level="LOW",
+                consecutive_low_periods=0,
                 monthly_expenses=14200.0,
                 weekly_expenses=3100.0,
                 essential_expenses=11500.0,
                 non_essential_expenses=2700.0,
-                expense_to_income_ratio=0.85,
-                resilience_score=58.0,
-                resilience_label="at_risk",
-                distress_score=65.0,
-                distress_level="HIGH",
-                distress_signals=["income_decline", "sustained_low_income", "expense_pressure"],
-                credit_pressure=40.0,
+                expense_to_income_ratio=0.58,
+                resilience_score=78.0,
+                resilience_label="healthy",
+                distress_score=15.0,
+                distress_level="LOW",
+                distress_signals=[],
+                credit_pressure=15.0,
                 platform_tenure_months=24,
-                safety_surplus=-1800.0,  # 8200 - 10000 = -1800
-                investment_ready=False,
+                safety_surplus=500.0,  # 10500 - 10000 = +500
+                investment_ready=True,
                 last_computed_at=datetime.now(timezone.utc),
             )
             db.add(profile)
         else:
-            # Update to State B
+            # Update to Healthy State
             existing_profile.historical_avg_income = 24000.0
-            existing_profile.recent_income = 15000.0
-            existing_profile.income_trend = "declining"
-            existing_profile.income_decline_pct = 37.5
-            existing_profile.income_volatility = 0.22
-            existing_profile.income_volatility_level = "MODERATE"
-            existing_profile.consecutive_low_periods = 3
+            existing_profile.recent_income = 24500.0
+            existing_profile.income_trend = "stable"
+            existing_profile.income_decline_pct = 0.0
+            existing_profile.income_volatility = 0.08
+            existing_profile.income_volatility_level = "LOW"
+            existing_profile.consecutive_low_periods = 0
             existing_profile.monthly_expenses = 14200.0
-            existing_profile.expense_to_income_ratio = 0.85
-            existing_profile.resilience_score = 58.0
-            existing_profile.resilience_label = "at_risk"
-            existing_profile.distress_score = 65.0
-            existing_profile.distress_level = "HIGH"
-            existing_profile.distress_signals = ["income_decline", "sustained_low_income", "expense_pressure"]
-            existing_profile.safety_surplus = -1800.0
-            existing_profile.investment_ready = False
+            existing_profile.expense_to_income_ratio = 0.58
+            existing_profile.resilience_score = 78.0
+            existing_profile.resilience_label = "healthy"
+            existing_profile.distress_score = 15.0
+            existing_profile.distress_level = "LOW"
+            existing_profile.distress_signals = []
+            existing_profile.safety_surplus = 500.0
+            existing_profile.investment_ready = True
 
         # ============================================================
         # ADMIN USER
@@ -500,23 +554,136 @@ def seed_database():
             db.add(admin)
             db.flush()
 
-            # Admin wallets (required by relationships)
-            db.add(Wallet(user_id=admin.id, wallet_type="DAILY", balance=0.0))
-            db.add(Wallet(user_id=admin.id, wallet_type="SAFETY", balance=0.0, target_amount=10000.0))
-            db.add(SavingsPreference(user_id=admin.id))
-            db.add(FinancialProfile(user_id=admin.id))
+        # ============================================================
+        # INCOMESHIELD INSURANCE (Plans, Partner & Telemetry)
+        # ============================================================
+        from app.insurance.models import InsurancePartner, InsurancePlan, InsuranceEvent
+        print("Checking IncomeShield insurance plans...")
+        if db.query(InsurancePlan).count() == 0:
+            print("Creating IncomeShield insurance partner and plans...")
+            partner = InsurancePartner(
+                name="SafeWork Protection Partner",
+                code="SAFEWORK-INS-01",
+                partner_type="LICENSED_INSURER",
+                active=True,
+                contact_info={"support_email": "claims@safework-shield.in", "helpline": "1800-419-7443"},
+            )
+            db.add(partner)
+            db.flush()
+
+            plans = [
+                InsurancePlan(
+                    partner_id=partner.id,
+                    name="Basic IncomeShield",
+                    code="INCSH_BASIC",
+                    description="Essential rainy-day and heatwave protection for high-frequency gig couriers.",
+                    premium=29.0,
+                    premium_frequency="weekly",
+                    coverage_limit=2000.0,
+                    policy_duration="7 days",
+                    covered_events=["HEAVY_RAIN", "EXTREME_HEAT"],
+                    trigger_conditions={
+                        "HEAVY_RAIN": "Rainfall >= 50mm over 3 consecutive hours in registered delivery zone",
+                        "EXTREME_HEAT": "Temperature >= 43°C during peak working hours (11:00 AM - 4:00 PM)",
+                    },
+                    waiting_period="24 hours",
+                    exclusions=[
+                        "Disruptions outside registered delivery zone",
+                        "Pre-existing government curfews before policy start",
+                        "Voluntary off-duty non-working hours",
+                    ],
+                    coverage_area_rules={
+                        "primary_zone": "Chennai Delivery Zone",
+                        "supported_subzones": ["Chennai Central", "Chennai South", "Chennai North", "OMR-ECR"],
+                    },
+                    active=True,
+                ),
+                InsurancePlan(
+                    partner_id=partner.id,
+                    name="Standard IncomeShield",
+                    code="INCSH_STANDARD",
+                    description="Comprehensive parametric protection covering heavy rain, urban flooding, and heatwaves.",
+                    premium=49.0,
+                    premium_frequency="weekly",
+                    coverage_limit=5000.0,
+                    policy_duration="7 days",
+                    covered_events=["HEAVY_RAIN", "FLOOD", "EXTREME_HEAT"],
+                    trigger_conditions={
+                        "HEAVY_RAIN": "Rainfall >= 45mm over 3 consecutive hours",
+                        "FLOOD": "Civic waterlogging advisory or road closure > 3 hours",
+                        "EXTREME_HEAT": "Temperature >= 42°C during 11:00 AM - 4:00 PM",
+                    },
+                    waiting_period="24 hours",
+                    exclusions=[
+                        "Disruptions outside registered delivery zone",
+                        "Voluntary offline status during undisrupted hours",
+                    ],
+                    coverage_area_rules={
+                        "primary_zone": "Chennai Delivery Zone",
+                        "supported_subzones": ["Chennai Central", "Chennai South", "Chennai North", "OMR-ECR", "West Chennai"],
+                    },
+                    active=True,
+                ),
+                InsurancePlan(
+                    partner_id=partner.id,
+                    name="Plus IncomeShield",
+                    code="INCSH_PLUS",
+                    description="Full-spectrum resilience coverage with expedited claim settlement and civic disruption shield.",
+                    premium=79.0,
+                    premium_frequency="weekly",
+                    coverage_limit=10000.0,
+                    policy_duration="7 days",
+                    covered_events=["HEAVY_RAIN", "FLOOD", "EXTREME_HEAT", "WORK_DISRUPTION"],
+                    trigger_conditions={
+                        "HEAVY_RAIN": "Rainfall >= 40mm over 3 consecutive hours",
+                        "FLOOD": "Waterlogging warning or road closure > 2 hours",
+                        "EXTREME_HEAT": "Temperature >= 41°C during peak hours",
+                        "WORK_DISRUPTION": "Civic curfew, grid collapse, or localized platform outage > 4 hours",
+                    },
+                    waiting_period="12 hours",
+                    exclusions=[
+                        "Disruptions in unverified zones without official IMD or civic telemetry",
+                    ],
+                    coverage_area_rules={
+                        "primary_zone": "Chennai Delivery Zone",
+                        "supported_subzones": ["All Chennai Metropolitan Subzones"],
+                    },
+                    active=True,
+                ),
+            ]
+            for p in plans:
+                db.add(p)
+
+            # Seed demo active event
+            initial_event = InsuranceEvent(
+                event_type="HEAVY_RAIN",
+                zone="Chennai Delivery Zone",
+                start_time=datetime.now(timezone.utc) - timedelta(hours=2, minutes=45),
+                duration="2h 45m",
+                source="IMD Chennai Radar Telemetry",
+                source_reference="IMD-RADAR-CHN-098",
+                verification_status="VERIFIED",
+                severity="SEVERE",
+                telemetry_data={
+                    "observed_rainfall_mm": 58.0,
+                    "threshold_rainfall_mm": 50.0,
+                    "duration_hours": 3,
+                    "affected_subzones": ["Chennai South", "OMR-ECR", "Velachery", "Guindy"],
+                },
+            )
+            db.add(initial_event)
 
         db.commit()
         print("\n✅ LEVELLY Database Seeded Successfully!")
         print("\nDemo Accounts:")
         print("  User:  arjun@levelly.app  / Levelly@123")
         print("  Admin: admin@levelly.app  / Admin@Levelly123")
-        print("\nArjun's current state: State B (Financial Pressure)")
+        print("\nArjun's current state: Healthy State (Surplus Active)")
         print("  - Historical avg income: ₹24,000/month")
-        print("  - Recent income: ₹15,000/month")
-        print("  - Safety Wallet: ₹8,200 / ₹10,000 (82%)")
-        print("  - Distress Level: HIGH")
-        print("  - Resilience Score: 58/100")
+        print("  - Recent income: ₹24,500/month")
+        print("  - Safety Wallet: ₹10,500 / ₹10,000 (105% - ₹500 surplus)")
+        print("  - Distress Level: LOW")
+        print("  - Resilience Score: 78/100")
 
     except Exception as e:
         db.rollback()

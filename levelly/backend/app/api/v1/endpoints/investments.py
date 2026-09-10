@@ -12,6 +12,8 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.config import settings
 from app.models.user import User
+from app.models.wallet import Wallet
+from app.models.financial_profile import FinancialProfile
 from app.models.investment import (
     InvestmentProduct, InvestmentConsent, InvestmentOrder, InvestmentSuggestion
 )
@@ -47,26 +49,75 @@ def get_investment_status(
 def get_investment_suggestions(
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    """Get personalized investment suggestions."""
+    """
+    Get personalized investment suggestions.
+    Returns at least 3-4 distinct products for healthy Arjun.
+    Returns empty list when investment suggestions are paused.
+    """
     svc = InvestmentRecommendationService(db)
     status = svc.get_investment_status(current_user.id)
 
     if status["is_paused"]:
-        return {
-            "paused": True,
-            "pause_reason": status["pause_reason"],
-            "suggestions": [],
-            "safety_balance": status["safety_balance"],
-            "safety_target": status["safety_target"],
-        }
+        return []
 
     suggestions = svc.get_suggestions(current_user.id)
+    return suggestions
 
+
+@router.post("/demo/toggle-surplus")
+def toggle_demo_investment_state(
+    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    """Toggle Arjun's Safety Wallet between State B (₹8,200, Paused, HIGH distress) and State A (₹10,500, Active Surplus, LOW distress)."""
+    wallet = (
+        db.query(Wallet)
+        .filter(Wallet.user_id == current_user.id, Wallet.wallet_type == "SAFETY")
+        .first()
+    )
+    if not wallet:
+        raise HTTPException(status_code=404, detail="Safety Wallet not found")
+
+    profile = (
+        db.query(FinancialProfile)
+        .filter(FinancialProfile.user_id == current_user.id)
+        .first()
+    )
+
+    if wallet.balance >= (wallet.target_amount or 10000.0):
+        # Switch back to State B (Paused / ₹8,200 / Distress HIGH)
+        wallet.balance = 8200.0
+        if profile:
+            profile.distress_level = "HIGH"
+            profile.resilience_score = 58.0
+            profile.recent_income = 15000.0
+            profile.safety_surplus = -1800.0
+            profile.investment_ready = False
+            profile.distress_signals = ["income_decline", "sustained_low_income", "expense_pressure"]
+        mode = "paused"
+        message = "Switched to State B: Safety Wallet at ₹8,200 (Investment Suggestions Paused to protect buffer)."
+    else:
+        # Switch to State A (Target Reached / ₹10,500 with ₹500 surplus / Distress LOW)
+        wallet.balance = 10500.0
+        if profile:
+            profile.distress_level = "LOW"
+            profile.resilience_score = 78.0
+            profile.recent_income = 24500.0
+            profile.historical_avg_income = 24000.0
+            profile.safety_surplus = 500.0
+            profile.investment_ready = True
+            profile.distress_signals = []
+        mode = "active_surplus"
+        message = "Switched to State A: Safety Wallet at ₹10,500 (Target Reached with ₹500 Surplus for Investment)!"
+
+    db.commit()
+    db.refresh(wallet)
     return {
-        "paused": False,
-        "suggestions": suggestions,
-        "safety_surplus": status["safety_surplus"],
-        "available_for_investment": status["available_for_investment"],
+        "success": True,
+        "mode": mode,
+        "balance": wallet.balance,
+        "target": wallet.target_amount,
+        "surplus": wallet.balance - (wallet.target_amount or 10000.0),
+        "message": message,
     }
 
 

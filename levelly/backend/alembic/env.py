@@ -19,8 +19,10 @@ import app.models  # noqa: F401
 
 config = context.config
 
-# Override sqlalchemy.url with our settings
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Override sqlalchemy.url with our settings if not explicitly customized
+current_url = config.get_main_option("sqlalchemy.url")
+if not current_url or "driver://user:pass" in current_url:
+    config.set_main_option("sqlalchemy.url", settings.SQLALCHEMY_DATABASE_URI)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -47,6 +49,10 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
+        schema_override = os.getenv("ALEMBIC_SCHEMA")
+        if schema_override:
+            from sqlalchemy import text
+            connection.execute(text(f"SET search_path TO {schema_override}"))
         context.configure(connection=connection, target_metadata=target_metadata)
         with context.begin_transaction():
             context.run_migrations()

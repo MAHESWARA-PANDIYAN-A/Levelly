@@ -43,10 +43,10 @@ class NotificationService:
         return self.create(
             user_id=user_id,
             title="Payout Received",
-            message=f"₹{amount:,.0f} has been added to your Daily Wallet{' from ' + source if source else ''}.",
+            message=f"₹{amount:,.0f} recorded to your linked account{' from ' + source if source else ''}.",
             notification_type="payout_received",
             priority="normal",
-            action_url="/wallets",
+            action_url="/income",
         )
 
     def payment_completed(self, user_id: int, amount: float, category: str) -> Notification:
@@ -67,6 +67,11 @@ class NotificationService:
             priority="normal",
             action_url="/wallets/safety",
         )
+
+    def notify_savings_added(
+        self, user_id: int, amount: float, wallet_type: str = "SAFETY", safety_balance: float = 0.0
+    ) -> Notification:
+        return self.save_at_pay_accepted(user_id=user_id, save_amount=amount)
 
     def safety_wallet_milestone(self, user_id: int, progress_pct: float, balance: float) -> Notification:
         return self.create(

@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { coachAPI } from '../lib/api'
 import { useAuthStore } from '../store/authStore'
 import { v4 as uuidv4 } from 'uuid'
+import FormattedCoachMessage from '../components/FormattedCoachMessage'
 
 interface Message {
   id: string
@@ -101,13 +102,13 @@ export default function CoachPage() {
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
         {messages.map((msg) => (
           <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+            <div className={`max-w-[88%] rounded-2xl px-4 py-3 ${
               msg.role === 'user'
                 ? 'bg-emerald-600 text-white rounded-br-sm'
-                : 'bg-white text-gray-800 shadow-card rounded-bl-sm'
+                : 'bg-white text-gray-800 shadow-card rounded-bl-sm border border-slate-100/80'
             }`}>
-              <p className="text-sm leading-relaxed">{msg.text}</p>
-              <p className={`text-[10px] mt-1.5 ${msg.role === 'user' ? 'text-emerald-200' : 'text-gray-400'}`}>
+              <FormattedCoachMessage text={msg.text} isUser={msg.role === 'user'} />
+              <p className={`text-[10px] mt-2 ${msg.role === 'user' ? 'text-emerald-200' : 'text-gray-400'}`}>
                 {msg.time.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
@@ -116,11 +117,11 @@ export default function CoachPage() {
 
         {sendMutation.isPending && (
           <div className="flex justify-start">
-            <div className="bg-white rounded-2xl rounded-bl-sm px-4 py-3 shadow-card">
-              <div className="flex gap-1">
-                <div className="w-2 h-2 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-2 h-2 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-2 h-2 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="bg-white rounded-2xl rounded-bl-sm px-4 py-3 shadow-card border border-slate-100/80">
+              <div className="flex gap-1 items-center py-1 px-1">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           </div>
@@ -134,7 +135,7 @@ export default function CoachPage() {
               <button
                 key={i}
                 onClick={() => handleSend(q)}
-                className="w-full text-left p-3 bg-white rounded-xl text-sm text-gray-700 shadow-card hover:bg-emerald-50 hover:text-emerald-700 transition-all"
+                className="w-full text-left p-3 bg-white rounded-xl text-sm text-gray-700 shadow-card hover:bg-emerald-50 hover:text-emerald-700 transition-all border border-slate-100/80"
               >
                 {q}
               </button>
@@ -145,9 +146,9 @@ export default function CoachPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
-      <div className="px-5 py-3 bg-white border-t border-gray-100 flex-shrink-0 pb-safe">
-        <div className="flex items-end gap-2">
+      {/* Input — moved slightly down with top padding and mt-1.5 */}
+      <div className="px-5 pt-4 pb-3 sm:pb-5 bg-white border-t border-slate-100 shadow-[0_-4px_20px_rgba(0,0,0,0.03)] flex-shrink-0">
+        <div className="flex items-end gap-2 mt-1.5">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -158,19 +159,19 @@ export default function CoachPage() {
               }
             }}
             placeholder="Ask Levelly Coach..."
-            className="flex-1 input-field resize-none min-h-[44px] max-h-[120px]"
+            className="flex-1 input-field resize-none min-h-[44px] max-h-[120px] text-sm"
             rows={1}
           />
           <button
             id="btn-coach-send"
             onClick={() => handleSend()}
             disabled={!input.trim() || sendMutation.isPending}
-            className="w-11 h-11 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 rounded-xl flex items-center justify-center flex-shrink-0 transition-all"
+            className="w-11 h-11 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 rounded-xl flex items-center justify-center flex-shrink-0 transition-all shadow-sm"
           >
             <Send className="w-4 h-4 text-white" />
           </button>
         </div>
-        <p className="text-[10px] text-gray-400 text-center mt-2">
+        <p className="text-[10px] text-gray-400 text-center mt-2 pb-1">
           Levelly Coach provides general financial guidance, not regulated advice.
         </p>
       </div>

@@ -11,6 +11,7 @@
 # Keep example env file
 !.env.example
 
+
 # Python
 __pycache__/
 *.py[cod]
@@ -92,11 +93,9 @@ Thumbs.db
 *~
 *.sublime-project
 *.sublime-workspace
-
 # Log files
 *.log
 logs/
-
 # Agent / Scratch files
 .system_generated/
 scratch/

@@ -7,6 +7,7 @@ import {
   User,
   Bell,
   Shield,
+  Umbrella,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { notificationAPI } from '../lib/api'
@@ -14,9 +15,10 @@ import { useAuthStore } from '../store/authStore'
 
 const navItems = [
   { to: '/', icon: Home, label: 'HOME', exact: true },
+  { to: '/pay', icon: QrCode, label: 'PAY' },
   { to: '/safety', icon: ShieldCheck, label: 'SAFETY' },
-  { to: '/pay', icon: QrCode, label: 'PAY', isCenter: true },
   { to: '/grow', icon: TrendingUp, label: 'GROW' },
+  { to: '/incomeshield', icon: Umbrella, label: 'INCOMESHIELD' },
   { to: '/profile', icon: User, label: 'PROFILE' },
 ]
 
@@ -96,41 +98,9 @@ export default function Layout() {
 
       {/* Fixed Bottom Navigation Dock (flush with bottom) */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
-        <div className="max-w-md mx-auto pointer-events-auto bg-white/95 backdrop-blur-xl border-t border-slate-200/90 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] px-3 py-1.5 flex items-center justify-between">
+        <div className="max-w-md mx-auto pointer-events-auto bg-white/95 backdrop-blur-xl border-t border-slate-200/90 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] px-1 sm:px-2 py-1.5 flex items-center justify-around">
           {navItems.map((item) => {
             const Icon = item.icon
-            const isPayCenter = item.isCenter
-
-            if (isPayCenter) {
-              return (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className="flex flex-col items-center -mt-5 transition transform active:scale-95 group"
-                >
-                  {({ isActive }) => (
-                    <div className="flex flex-col items-center">
-                      <div
-                        className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-all ${
-                          isActive
-                            ? 'bg-gradient-to-tr from-emerald-600 to-teal-500 text-white shadow-emerald-600/40 ring-4 ring-emerald-50'
-                            : 'bg-gradient-to-tr from-slate-900 to-slate-800 text-emerald-400 shadow-slate-900/30 group-hover:scale-105'
-                        }`}
-                      >
-                        <Icon className="w-6 h-6" />
-                      </div>
-                      <span
-                        className={`text-[9px] font-black uppercase tracking-wider mt-1 transition ${
-                          isActive ? 'text-emerald-700' : 'text-slate-600'
-                        }`}
-                      >
-                        {item.label}
-                      </span>
-                    </div>
-                  )}
-                </NavLink>
-              )
-            }
 
             return (
               <NavLink
@@ -138,10 +108,10 @@ export default function Layout() {
                 to={item.to}
                 end={item.exact}
                 className={({ isActive }) =>
-                  `flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition ${
+                  `flex flex-col items-center gap-0.5 py-1 px-1 sm:px-1.5 rounded-xl transition ${
                     isActive
-                      ? 'text-emerald-700 font-bold'
-                      : 'text-slate-400 hover:text-slate-600'
+                      ? 'text-emerald-700 font-black'
+                      : 'text-slate-400 hover:text-slate-600 font-bold'
                   }`
                 }
               >
@@ -149,12 +119,12 @@ export default function Layout() {
                   <>
                     <div
                       className={`p-1 rounded-lg transition ${
-                        isActive ? 'bg-emerald-50 text-emerald-700' : 'text-slate-400'
+                        isActive ? 'bg-emerald-50 text-emerald-700 scale-105' : 'text-slate-400'
                       }`}
                     >
                       <Icon className="w-5 h-5" />
                     </div>
-                    <span className="text-[10px] font-bold tracking-tight">
+                    <span className="text-[8.5px] sm:text-[9.5px] tracking-tight leading-none whitespace-nowrap">
                       {item.label}
                     </span>
                   </>

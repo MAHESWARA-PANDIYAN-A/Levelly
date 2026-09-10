@@ -38,19 +38,23 @@ export default function IncomePage() {
         <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-5 animate-bounce-soft">
           <DollarSign className="w-10 h-10 text-emerald-600" />
         </div>
-        <h2 className="text-2xl font-bold mb-2">Income Added!</h2>
+        <h2 className="text-2xl font-bold mb-2">Income Recorded!</h2>
         <p className="text-4xl font-bold text-emerald-600 mb-4">
           ₹{parseFloat(amount).toLocaleString('en-IN')}
         </p>
-        <p className="text-gray-500 mb-6">Added to your Daily Wallet from {source}</p>
-        <div className="card mb-4">
+        <p className="text-gray-500 mb-6">Recorded to your Linked Bank Account from {source}</p>
+        <div className="card mb-4 bg-emerald-50/50 border border-emerald-100">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Daily Wallet Balance</span>
-            <span className="font-bold">₹{success.daily_wallet_balance?.toLocaleString('en-IN')}</span>
+            <span className="text-gray-600">Destination Account</span>
+            <span className="font-semibold text-emerald-800">Linked Bank Account</span>
+          </div>
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <span>Financial Intelligence</span>
+            <span className="text-emerald-700">Resilience score updated</span>
           </div>
         </div>
         <button onClick={() => { setSuccess(null); setAmount('') }} className="btn-primary mb-2">
-          Add More Income
+          Record More Income
         </button>
         <button onClick={() => navigate('/')} className="btn-ghost">Back to Home</button>
       </div>
@@ -62,8 +66,8 @@ export default function IncomePage() {
       <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-600 mb-5">
         <ArrowLeft className="w-4 h-4" /> Back
       </button>
-      <h1 className="text-2xl font-bold mb-1">Add Income</h1>
-      <p className="text-sm text-gray-500 mb-6">Record a payout or income received</p>
+      <h1 className="text-2xl font-bold mb-1">Record Income</h1>
+      <p className="text-sm text-gray-500 mb-6">Record income to your linked account</p>
 
       <div className="card mb-4">
         <label className="text-sm font-medium text-gray-600 block mb-2">Amount Received (₹)</label>
@@ -112,8 +116,9 @@ export default function IncomePage() {
         disabled={addIncomeMutation.isPending}
         className="btn-primary"
       >
-        {addIncomeMutation.isPending ? 'Adding...' : `Add ₹${amount || '0'} to Daily Wallet`}
+        {addIncomeMutation.isPending ? 'Recording...' : `Record ₹${amount || '0'} to Linked Account`}
       </button>
     </div>
   )
 }
+

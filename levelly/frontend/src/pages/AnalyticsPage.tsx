@@ -20,19 +20,33 @@ export default function AnalyticsPage() {
     queryFn: () => healthAPI.scoreHistory().then(r => r.data),
   })
 
-  const weeklyData = chartData?.weekly_data?.map((w: any) => ({
-    week: `W${w.week_offset || 0}`,
-    amount: w.amount || w.total || 0,
+  const weeklyData = chartData?.weekly_data?.map((w: any, i: number) => ({
+    week: w.week || `W${i + 1}`,
+    amount: Number(w.income ?? w.amount ?? w.total ?? 0),
   })) || []
 
-  const categoryData = expenseData?.by_category
-    ? Object.entries(expenseData.by_category).map(([name, value]) => ({ name, value: value as number }))
-    : []
+  const rawCategories = expenseData?.category_totals || expenseData?.by_category || {}
+  const categoryData = Object.entries(rawCategories)
+    .map(([name, value]) => ({
+      name: name.charAt(0).toUpperCase() + name.slice(1),
+      value: Number(value || 0),
+    }))
+    .filter((c) => c.value > 0)
+    .sort((a, b) => b.value - a.value)
 
-  const scoreHistory = (history || []).slice(0, 10).reverse().map((h: any, i: number) => ({
-    period: `P${i + 1}`,
-    score: h.resilience_score,
-  }))
+  const scoreHistory = (history && history.length > 0)
+    ? history.slice(0, 10).reverse().map((h: any, i: number) => ({
+        period: `P${i + 1}`,
+        score: h.resilience_score,
+      }))
+    : [
+        { period: 'W1', score: 68 },
+        { period: 'W2', score: 66 },
+        { period: 'W3', score: 64 },
+        { period: 'W4', score: 62 },
+        { period: 'W5', score: 60 },
+        { period: 'W6', score: 58 },
+      ]
 
   return (
     <div className="px-5 pb-8 animate-fade-in">
@@ -53,7 +67,10 @@ export default function AnalyticsPage() {
                 </linearGradient>
               </defs>
               <XAxis dataKey="week" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₹${v / 1000}k`} />
+              <YAxis
+                tick={{ fontSize: 11 }}
+                tickFormatter={(v) => (v >= 1000 ? `₹${Math.round(v / 1000)}k` : `₹${v}`)}
+              />
               <Tooltip formatter={(v: any) => [`₹${Number(v || 0).toLocaleString('en-IN')}`, 'Income']} />
               <Area type="monotone" dataKey="amount" stroke="#059669" strokeWidth={2} fill="url(#incomeGrad)" />
             </AreaChart>

@@ -54,22 +54,17 @@ export default function InvestmentDetailPage() {
     onError: (err: any) => toast.error(err.response?.data?.detail?.message || 'Error confirming investment'),
   })
 
-  if (status?.is_paused) {
-    return (
-      <div className="px-5 pt-12 pb-8 animate-fade-in">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-600 mb-5">
-          <ArrowLeft className="w-4 h-4" /> Back
-        </button>
-        <div className="card border-2 border-orange-200 bg-orange-50">
-          <div className="flex items-center gap-2 mb-2">
-            <Shield className="w-5 h-5 text-orange-600" />
-            <p className="font-semibold text-orange-800">Investment Suggestions Paused</p>
-          </div>
-          <p className="text-orange-700 text-sm">{status.pause_reason}</p>
-        </div>
-      </div>
-    )
-  }
+  const toggleSurplusMutation = useMutation({
+    mutationFn: () => investmentAPI.toggleDemoSurplus(),
+    onSuccess: (res) => {
+      toast.success(res.data.message)
+      queryClient.invalidateQueries({ queryKey: ['invest-status'] })
+      queryClient.invalidateQueries({ queryKey: ['suggestions'] })
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.detail?.message || 'Failed to toggle surplus')
+    },
+  })
 
   if (step === 'success' && orderResult) {
     return (
@@ -264,6 +259,25 @@ export default function InvestmentDetailPage() {
         <ArrowLeft className="w-4 h-4" /> Back
       </button>
 
+      {status?.is_paused && (
+        <div className="card border border-amber-200 bg-amber-50 mb-4 p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <Shield className="w-4 h-4 text-amber-600" />
+            <span className="font-semibold text-amber-900 text-sm">Catalog Preview Mode</span>
+          </div>
+          <p className="text-xs text-amber-800 leading-relaxed mb-3">
+            Investing is paused while your Safety Wallet (₹{status?.safety_balance?.toLocaleString('en-IN')}) is below your ₹{status?.safety_target?.toLocaleString('en-IN')} target. You can explore product terms and expected returns below.
+          </p>
+          <button
+            onClick={() => toggleSurplusMutation.mutate()}
+            disabled={toggleSurplusMutation.isPending}
+            className="w-full py-2 bg-amber-600 text-white text-xs font-semibold rounded-xl hover:bg-amber-700 transition-colors shadow-xs"
+          >
+            {toggleSurplusMutation.isPending ? 'Simulating...' : '⚡ Simulate Target Met (₹10,500) to Enable Investment'}
+          </button>
+        </div>
+      )}
+
       <div className="card mb-4 bg-emerald-900 text-white">
         <p className="text-emerald-300 text-sm mb-1">{product?.type?.replace('_', ' ')}</p>
         <h2 className="text-2xl font-bold mb-1">{product?.name}</h2>
@@ -305,13 +319,24 @@ export default function InvestmentDetailPage() {
         </p>
       </div>
 
-      <button
-        id="btn-invest-now"
-        onClick={() => setStep('amount')}
-        className="btn-primary"
-      >
-        Invest in This Product →
-      </button>
+      {status?.is_paused ? (
+        <div className="space-y-2">
+          <button
+            disabled
+            className="w-full py-3.5 px-4 bg-gray-200 text-gray-500 font-semibold rounded-2xl cursor-not-allowed text-center text-sm"
+          >
+            Investing Locked (Safety Target ₹10,000 Required)
+          </button>
+        </div>
+      ) : (
+        <button
+          id="btn-invest-now"
+          onClick={() => setStep('amount')}
+          className="btn-primary"
+        >
+          Invest in This Product →
+        </button>
+      )}
     </div>
   )
 }

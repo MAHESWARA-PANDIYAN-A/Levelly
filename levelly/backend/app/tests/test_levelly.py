@@ -20,8 +20,10 @@ from app.engines.investment_engine import InvestmentRecommendationService
 from app.models.user import User
 from app.models.wallet import Wallet
 from app.models.transaction import IncomeTransaction, ExpenseTransaction
-from app.models.savings import CategorySavingPolicy, SavingsPreference
+from app.models.savings import CategorySavingPolicy, SavingsPreference, SavingsTransaction
 from app.models.financial_profile import FinancialProfile
+from app.models.payment import LinkedPaymentAccount, Merchant, PaymentTransaction
+from app.models.investment import InvestmentProduct, InvestmentOrder
 from app.core.security import hash_password
 
 
@@ -66,10 +68,20 @@ def test_user(db):
     db.add(user)
     db.flush()
 
-    daily_wallet = Wallet(user_id=user.id, wallet_type="DAILY", balance=15000.0)
     safety_wallet = Wallet(user_id=user.id, wallet_type="SAFETY", balance=8000.0, target_amount=10000.0)
-    db.add(daily_wallet)
     db.add(safety_wallet)
+
+    linked_account = LinkedPaymentAccount(
+        user_id=user.id,
+        provider="upi",
+        upi_id="test@upi",
+        bank_name="HDFC Bank",
+        account_mask="****4821",
+        account_holder_name="Test User",
+        status="connected",
+        is_primary=True,
+    )
+    db.add(linked_account)
 
     pref = SavingsPreference(user_id=user.id, safety_target=10000.0)
     db.add(pref)
@@ -509,6 +521,95 @@ class TestInvestmentEngine:
         assert not status["is_paused"]
         assert status["safety_surplus"] > 0
 
+    def test_arjun_healthy_state_returns_investment_suggestions(self, db, test_user):
+        """
+        Healthy Arjun (Safety: ₹10,500 >= ₹10,000, Distress: LOW, Resilience: 78, Surplus: ₹500)
+        MUST receive at least 3-4 investment products with full metadata.
+        """
+        # Seed the 4 development products
+        products_data = [
+            ("Liquid Growth Fund", "LIQUID_SAVINGS", "HDFC AMC", "LOW", "High (T+1)", "No lock-in", "6.2% p.a."),
+            ("7.18% GS 2033 Benchmark", "GOVERNMENT_SECURITY", "RBI / Govt of India", "LOW", "Medium", "1-3 years", "7.18% p.a."),
+            ("Target Maturity Bond Index", "FIXED_INCOME", "SBI Mutual Fund", "LOW", "Medium", "3 years", "7.35% p.a."),
+            ("Ultra Short Duration Debt Fund", "DEBT_ORIENTED", "ICICI Prudential AMC", "MODERATE", "High", "3-6 months", "6.85% p.a."),
+        ]
+        for name, p_type, issuer, risk, liq, hold, rate in products_data:
+            db.add(InvestmentProduct(
+                name=name,
+                product_type=p_type,
+                issuer=issuer,
+                risk_level=risk,
+                liquidity=liq,
+                holding_period=hold,
+                interest_or_coupon=rate,
+                fees="0.15% - 0.25%",
+                tax_notes="Gains taxed per applicable slab.",
+                terms="Development product metadata for hackathon demonstration.",
+                min_investment=100.0,
+                active=True,
+            ))
+
+        # Configure healthy Arjun state
+        profile = db.query(FinancialProfile).filter_by(user_id=test_user.id).first()
+        profile.distress_level = "LOW"
+        profile.resilience_score = 78.0
+        profile.recent_income = 24500.0
+        profile.historical_avg_income = 24000.0
+        profile.safety_surplus = 500.0
+        profile.investment_ready = True
+
+        safety_wallet = db.query(Wallet).filter_by(user_id=test_user.id, wallet_type="SAFETY").first()
+        safety_wallet.balance = 10500.0
+        safety_wallet.target_amount = 10000.0
+        db.commit()
+
+        svc = InvestmentRecommendationService(db)
+        status = svc.get_investment_status(test_user.id)
+        assert status["is_paused"] is False
+        assert status["safety_surplus"] == 500.0
+        assert status["distress_level"] == "LOW"
+        assert status["resilience_score"] == 78.0
+
+        suggestions = svc.get_suggestions(test_user.id)
+        assert len(suggestions) >= 3
+        types_returned = [s["type"] for s in suggestions]
+        assert "GOVERNMENT_SECURITY" in types_returned
+        assert "LIQUID_SAVINGS" in types_returned
+        assert "FIXED_INCOME" in types_returned
+
+        for s in suggestions:
+            assert s["product_id"] is not None
+            assert s["name"] is not None
+            assert s["risk_level"] in ("LOW", "MODERATE")
+            assert s["liquidity"] is not None
+            assert s["holding_period"] is not None
+            assert s["reason"] is not None
+
+    def test_investment_order_requires_explicit_confirmation(self, db, test_user):
+        """
+        Investment is NEVER automatic.
+        Selecting product / amount does not create an order. Only explicit confirmation creates order.
+        """
+        prod = InvestmentProduct(
+            name="Test Gov Security",
+            product_type="GOVERNMENT_SECURITY",
+            risk_level="LOW",
+            liquidity="Medium",
+            holding_period="1 year",
+            min_investment=100.0,
+            active=True,
+        )
+        db.add(prod)
+        db.commit()
+
+        # Product selection / status query does NOT create orders
+        svc = InvestmentRecommendationService(db)
+        _ = svc.get_investment_status(test_user.id)
+        _ = svc.get_suggestions(test_user.id)
+
+        orders_count = db.query(InvestmentOrder).filter_by(user_id=test_user.id).count()
+        assert orders_count == 0
+
 
 # ============================================================
 # AUTHENTICATION TESTS
@@ -596,15 +697,11 @@ class TestEndToEnd:
         suggestion = engine.calculate_save_suggestion(1000, "food", test_user.id, "LOW")
         assert suggestion["suggested_save_amount"] == 100.0
 
-        # Simulate payment + save
-        daily_wallet = db.query(Wallet).filter_by(user_id=test_user.id, wallet_type="DAILY").first()
+        # Simulate payment from Linked Account + Save-at-Pay to Safety Wallet
         safety_wallet = db.query(Wallet).filter_by(user_id=test_user.id, wallet_type="SAFETY").first()
-
-        initial_daily = daily_wallet.balance
         initial_safety = safety_wallet.balance
 
-        # Deduct payment + save from daily wallet
-        daily_wallet.balance -= 1100.0  # 1000 payment + 100 save
+        # Save-at-Pay contribution added to Safety Wallet
         safety_wallet.balance += 100.0
 
         # Record savings transaction
@@ -619,7 +716,6 @@ class TestEndToEnd:
         db.add(savings_txn)
         db.commit()
 
-        assert daily_wallet.balance == initial_daily - 1100.0
         assert safety_wallet.balance == initial_safety + 100.0
 
         # Verify savings transaction recorded
@@ -631,16 +727,10 @@ class TestEndToEnd:
         """
         E2E: Declining save must NOT create savings transaction.
         """
-        from app.models.savings import SavingsTransaction
-
-        daily_wallet = db.query(Wallet).filter_by(user_id=test_user.id, wallet_type="DAILY").first()
         safety_wallet = db.query(Wallet).filter_by(user_id=test_user.id, wallet_type="SAFETY").first()
-
         initial_safety = safety_wallet.balance
 
-        # User declines save — only deduct payment amount
-        daily_wallet.balance -= 1000.0
-        # NO savings transaction created
+        # User declines save — payment proceeds from linked account, zero save transaction
         db.commit()
 
         # Verify no savings transaction
@@ -772,4 +862,127 @@ class TestEndToEnd:
         assert CategoryService.normalize("Bharat Petroleum", "Petrol Pump") == "fuel"
         assert CategoryService.normalize("Apollo Pharmacy", "Pharmacy") == "healthcare"
         assert CategoryService.normalize("Unknown Shop", None) == "other"
+
+
+# ============================================================
+# TARGETED PRODUCTION FIXES REGRESSION TESTS
+# ============================================================
+
+class TestTargetedFixesRegression:
+
+    def test_no_new_daily_wallet_created_on_registration(self, db):
+        """A. No new Daily Wallet is created for a new user registration."""
+        from app.api.v1.endpoints.auth import register, RegisterRequest
+        req = RegisterRequest(
+            email="new_rider@levelly.app",
+            full_name="New Rider",
+            password="Password@123",
+            occupation="Delivery Partner",
+            city="Bengaluru",
+        )
+        res = register(req, db)
+        assert res.user_id is not None
+
+        wallets = db.query(Wallet).filter(Wallet.user_id == res.user_id).all()
+        wallet_types = [w.wallet_type for w in wallets]
+
+        assert "DAILY" not in wallet_types
+        assert "SAFETY" in wallet_types
+        assert len(wallets) == 1
+
+    def test_financial_health_response_does_not_expose_daily_wallet(self, db, test_user):
+        """B. Financial health dashboard response does not expose Daily Wallet."""
+        from app.api.v1.endpoints.financial_health import get_dashboard
+        dashboard = get_dashboard(test_user, db)
+
+        assert "daily_wallet" not in dashboard
+        assert "safety_wallet" in dashboard
+        assert "linked_account" in dashboard
+        assert "spending" in dashboard
+        assert dashboard["safety_wallet"]["balance"] == 8000.0
+        assert dashboard["linked_account"]["bank_name"] == "HDFC Bank"
+
+    def test_default_category_policy_food(self, db):
+        """C. Food default policy = 10%."""
+        from app.engines.savings_engine import DEFAULT_CATEGORY_PERCENTAGES
+        svc = SavingsEngine(db)
+        assert svc.get_category_base_percentage("food") == 10.0
+        assert DEFAULT_CATEGORY_PERCENTAGES["food"] == 10.0
+
+    def test_default_category_policy_fuel(self, db):
+        """D. Fuel default policy = 5%."""
+        from app.engines.savings_engine import DEFAULT_CATEGORY_PERCENTAGES
+        svc = SavingsEngine(db)
+        assert svc.get_category_base_percentage("fuel") == 5.0
+        assert DEFAULT_CATEGORY_PERCENTAGES["fuel"] == 5.0
+
+    def test_default_category_policy_education(self, db):
+        """E. Education default policy = 8%."""
+        from app.engines.savings_engine import DEFAULT_CATEGORY_PERCENTAGES
+        svc = SavingsEngine(db)
+        assert svc.get_category_base_percentage("education") == 8.0
+        assert DEFAULT_CATEGORY_PERCENTAGES["education"] == 8.0
+
+    def test_food_base_suggestion_calculation(self, db, test_user):
+        """Food Rs 1000 base suggestion = Rs 100 before financial-condition adjustment."""
+        svc = SavingsEngine(db)
+        result = svc.calculate_save_suggestion(1000, "food", test_user.id, "LOW")
+        assert result["suggested_percentage"] == 10.0
+        assert result["suggested_save_amount"] == 100.0
+
+    def test_save_at_pay_respects_user_consent(self, db, test_user):
+        """F. Save-at-Pay continues to respect user consent."""
+        merchant = db.query(Merchant).first()
+        if not merchant:
+            merchant = Merchant(
+                merchant_code="M_TEST_CONSENT",
+                name="Quick Mart",
+                upi_id="quickmart@upi",
+                category="Food & Grocery",
+                normalized_category="food",
+                verification_status="verified",
+            )
+            db.add(merchant)
+            db.commit()
+
+        initial_tx_count = db.query(SavingsTransaction).filter_by(user_id=test_user.id).count()
+        safety_wallet = db.query(Wallet).filter_by(user_id=test_user.id, wallet_type="SAFETY").first()
+        initial_balance = safety_wallet.balance
+
+        # When user declines savings (save_consent = False)
+        pay_txn = PaymentTransaction(
+            user_id=test_user.id,
+            merchant_id=merchant.id,
+            merchant_name=merchant.name,
+            merchant_upi_id=merchant.upi_id,
+            amount=1000.0,
+            category="food",
+            save_consent=False,
+            actual_save_amount=0.0,
+            status="SUCCESS",
+            savings_credited=False,
+        )
+        db.add(pay_txn)
+        db.commit()
+
+        new_tx_count = db.query(SavingsTransaction).filter_by(user_id=test_user.id).count()
+        assert new_tx_count == initial_tx_count
+        assert safety_wallet.balance == initial_balance
+
+    def test_payment_flow_remains_unchanged(self, db, test_user):
+        """G. Payment provider abstraction and payment flow remain unchanged."""
+        from app.providers.payment_provider import get_payment_provider, MockUPIPaymentProvider
+        provider = get_payment_provider()
+        assert isinstance(provider, MockUPIPaymentProvider)
+
+        result = provider.create_payment(
+            payment_id=888,
+            user_id=test_user.id,
+            merchant_upi_id="merchant@upi",
+            merchant_name="Fuel Station",
+            amount=500.0,
+        )
+        assert result["status"] == "SUCCESS"
+        assert result["provider"] == "mock"
+        assert "upi_intent_url" in result
 

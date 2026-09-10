@@ -19,6 +19,7 @@ from app.api.v1.endpoints import (
     admin,
     nudges,
 )
+from app.insurance.api import router as insurance_router
 
 api_router = APIRouter()
 
@@ -32,6 +33,7 @@ api_router.include_router(income.router, prefix="/income", tags=["Income"])
 api_router.include_router(financial_health.router, prefix="/financial-health", tags=["Financial Health"])
 api_router.include_router(credit.router, prefix="/credit", tags=["Credit"])
 api_router.include_router(investments.router, prefix="/investments", tags=["Investments"])
+api_router.include_router(insurance_router, prefix="/insurance", tags=["IncomeShield"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["Notifications"])
 api_router.include_router(coach.router, prefix="/coach", tags=["Levelly Coach"])
 api_router.include_router(admin.router, prefix="/admin", tags=["Admin"])

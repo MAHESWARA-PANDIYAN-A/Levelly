@@ -52,6 +52,31 @@ def build_user_context(user: User, db: Session) -> dict:
         for c in reversed(recent_convos)
     ]
 
+    # IncomeShield policy and claim context
+    from app.insurance.models import InsurancePolicy, InsurancePayout
+    active_policy = (
+        db.query(InsurancePolicy)
+        .filter(InsurancePolicy.user_id == user.id, InsurancePolicy.status == "ACTIVE")
+        .order_by(InsurancePolicy.created_at.desc())
+        .first()
+    )
+    latest_payout = (
+        db.query(InsurancePayout)
+        .join(InsurancePolicy, InsurancePayout.policy_id == InsurancePolicy.id)
+        .filter(InsurancePolicy.user_id == user.id)
+        .order_by(InsurancePayout.created_at.desc())
+        .first()
+    )
+
+    incomeshield_context = {
+        "has_active_policy": active_policy is not None,
+        "policy_number": active_policy.policy_number if active_policy else None,
+        "plan_name": active_policy.plan.name if active_policy and active_policy.plan else None,
+        "coverage_limit": active_policy.coverage_limit if active_policy else 0.0,
+        "latest_payout_status": latest_payout.status if latest_payout else None,
+        "latest_payout_amount": latest_payout.amount if latest_payout else None,
+    }
+
     return {
         "context": {
             "name": user.full_name,
@@ -66,6 +91,7 @@ def build_user_context(user: User, db: Session) -> dict:
             "distress_signals": profile.distress_signals if profile else [],
             "credit_status": None,
             "investment_paused": profile.distress_level in ("HIGH", "SEVERE") if profile else False,
+            "incomeshield": incomeshield_context,
             "last_nudges": [],
         },
         "conversation_history": conversation_history,

@@ -10,6 +10,7 @@ from app.core.security import get_current_user
 from app.models.user import User
 from app.models.wallet import Wallet
 from app.models.financial_profile import FinancialProfile, FinancialScoreHistory
+from app.models.payment import LinkedPaymentAccount
 from app.engines.income_intelligence import IncomeIntelligenceService
 from app.engines.expense_engine import ExpenseEngine
 from app.engines.resilience_engine import FinancialResilienceService
@@ -25,6 +26,8 @@ def get_dashboard(
     """
     Home dashboard data. Returns all key metrics for the home screen.
     The UI renders whichever state the backend returns.
+    Exposes Safety Wallet, Linked Account, Spending, Income, Distress, and Resilience.
+    Daily Wallet is removed.
     """
     profile = (
         db.query(FinancialProfile)
@@ -32,14 +35,40 @@ def get_dashboard(
         .first()
     )
 
-    wallets = (
+    safety_wallet = (
         db.query(Wallet)
-        .filter(Wallet.user_id == current_user.id, Wallet.is_active == True)
-        .all()
+        .filter(
+            Wallet.user_id == current_user.id,
+            Wallet.wallet_type == "SAFETY",
+            Wallet.is_active == True,
+        )
+        .first()
     )
 
-    daily_wallet = next((w for w in wallets if w.wallet_type == "DAILY"), None)
-    safety_wallet = next((w for w in wallets if w.wallet_type == "SAFETY"), None)
+    linked_account = (
+        db.query(LinkedPaymentAccount)
+        .filter(
+            LinkedPaymentAccount.user_id == current_user.id,
+            LinkedPaymentAccount.is_primary == True,
+        )
+        .first()
+    )
+    linked_account_info = {
+        "bank_name": linked_account.bank_name if linked_account else "HDFC Bank",
+        "upi_id": linked_account.upi_id if linked_account else (f"{current_user.email.split('@')[0]}@upi" if current_user.email else "user@upi"),
+        "account_mask": linked_account.account_mask if linked_account else "****4821",
+        "account_holder_name": linked_account.account_holder_name if linked_account else (current_user.full_name or "Linked Account"),
+        "status": linked_account.status if linked_account else "connected",
+        "provider": linked_account.provider if linked_account else "upi",
+    }
+
+    spending_summary = {
+        "monthly_expenses": profile.monthly_expenses if profile else 0.0,
+        "weekly_expenses": profile.weekly_expenses if profile else 0.0,
+        "essential_expenses": profile.essential_expenses if profile else 0.0,
+        "non_essential_expenses": profile.non_essential_expenses if profile else 0.0,
+        "expense_to_income_ratio": profile.expense_to_income_ratio if profile else 0.0,
+    }
 
     resilience_score = profile.resilience_score if profile else 0.0
     resilience_label = profile.resilience_label if profile else "stable"
@@ -61,16 +90,14 @@ def get_dashboard(
             "full_name": current_user.full_name,
             "occupation": current_user.occupation,
         },
-        "daily_wallet": {
-            "balance": daily_wallet.balance if daily_wallet else 0,
-            "currency": "INR",
-        },
         "safety_wallet": {
             "balance": safety_wallet.balance if safety_wallet else 0,
             "target": safety_wallet.target_amount if safety_wallet else 10000,
             "progress": safety_wallet.progress_percentage if safety_wallet else 0,
             "currency": "INR",
         },
+        "linked_account": linked_account_info,
+        "spending": spending_summary,
         "resilience": {
             "score": resilience_score,
             "label": resilience_label,

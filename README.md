@@ -99,9 +99,9 @@ Pay ₹1,000
 Savings are **never taken without explicit user consent**.
 
 ### 3.3 Category-Based Saving
-Example configurable policies:
+Product-policy defaults configured in the database:
 
-| Category | Example Suggested Saving |
+| Category | Default Base Saving |
 |---|---:|
 | Food | 10% |
 | Fuel | 5% |
@@ -110,9 +110,11 @@ Example configurable policies:
 | Shopping | 10% |
 | Family | 5% |
 | Healthcare | 5% |
+| Bills | 5% |
+| Vehicle | 5% |
 | Other | 5% |
 
-These are configurable product/demo values, not universal financial advice.
+These are configurable product policies, dynamically adjusted downward by the financial distress intelligence layer when income volatility or financial pressure is detected.
 
 ### 3.4 Safety Wallet
 LEVELLY maintains a protected emergency reserve.
@@ -125,7 +127,10 @@ Safety Target = ₹10,000
 Progress = 82%
 ```
 
-The Safety Wallet is separate from normal spending. The current design intentionally does **not** require a separate Daily Wallet; everyday payments are made through the user's linked bank/UPI payment flow.
+- **No Daily Wallet in Current Architecture**: The obsolete concept of a "Daily Wallet" account has been completely removed. Gig workers spend directly from their Linked Bank / UPI Account without requiring intermediate wallet top-ups.
+- **Spending Source**: Linked Bank / UPI Account (`LinkedPaymentAccount`).
+- **Resilience Reserve**: Dedicated Safety Wallet (`Wallet(wallet_type="SAFETY")`).
+- **User Consent**: Save-at-Pay always requires explicit user consent before any savings contribution is credited to the Safety Wallet.
 
 ### 3.5 LEVELLY Pay
 The payment experience is designed around a bank/UPI-linked account.
@@ -1478,7 +1483,25 @@ Postgres Groq Payment Partners
 
 ---
 
-## 32. Project Status Model
+## 32. Project Status Model & Production Strategy
+
+### Payment Provider Abstraction
+- The payment architecture is decoupled via the `PaymentProvider` abstraction interface (`MockUPIPaymentProvider` and `ProductionUPIPaymentProvider`).
+- **Local Development / Testing**: Uses `MockUPIPaymentProvider` (`PAYMENT_PROVIDER=mock`). Zero external payment gateways or UPI aggregators are invoked during local development or testing.
+- **Real Payment Integration**: Live UPI gateway integration (e.g. Razorpay UPI, Setu, Cashfree, or NPCI APIs) remains a planned later task. Switching providers requires only configuration change (`PAYMENT_PROVIDER=production`) without altering core financial engines or UI screens.
+
+### Database Migrations with Alembic
+- Database schema changes are version-controlled using Alembic migrations located in `backend/alembic/versions/`.
+- **Baseline Migration**: Revision `1ac0710e0c5c_initial_schema.py` establishes the baseline version for all 25 database tables.
+- **Clean Database**:
+  ```bash
+  alembic upgrade head
+  ```
+- **Existing Development Database**: If the schema was already instantiated via SQLAlchemy metadata, apply a safe baseline stamp without losing data:
+  ```bash
+  alembic stamp head
+  ```
+- **Downgrade / Re-upgrade Testing**: Verified cleanly on clean databases for repeatable rollbacks.
 
 For development, keep these providers configurable:
 
@@ -1514,7 +1537,102 @@ LEVELLY's value is the **intelligence, personalization, transparency, and respon
 
 ---
 
-## 34. License / Usage
+## 34. LEVELLY IncomeShield — Native Parametric Income Protection Module
+
+> **"Protect your income when disruption stops your work."**
+
+IncomeShield is a native parametric-style income protection experience designed specifically for gig workers. It shields informal earners against covered external disruptions (heavy rainfall, waterlogging/floods, extreme heatwaves, and civic work disruptions) that impair their physical ability to earn.
+
+### 34.1 Architectural Position & No-Duplication Principle
+IncomeShield is built directly inside LEVELLY as a first-class native module, strictly reusing existing core platform engines:
+- **Authentication & User Profile**: Reuses existing JWT auth, user identity, and session context.
+- **Income Intelligence Engine**: Consumes `IncomeIntelligenceService` to calculate expected earnings, disrupted velocity, and estimated income gap without creating duplicate income tables.
+- **Safety Wallet**: Reuses existing `Wallet` and `SavingsTransaction` records. Payouts are never automatically transferred; workers explicitly choose whether to allocate funds towards their Safety Wallet target.
+- **Financial Resilience Score**: Contextually displays worker resilience score from `FinancialProfile`.
+- **Levelly Coach**: Enriched with live IncomeShield context so workers can ask questions about disruptions and policies.
+- **Notifications & Audit**: Reuses existing `Notification` and `AuditLog` infrastructure.
+
+```text
+WORKER EARNING PATTERN (Income Intelligence)
+                    +
+COVERED EXTERNAL DISRUPTION (Sensor/Civic Telemetry)
+                    +
+POLICY CONDITIONS (Parametric Thresholds)
+                    +
+INSURANCE PARTNER (Licensed Insurer Underwriting)
+                    ↓
+TRIGGER EVALUATION (Deterministic: NOT_REACHED vs REACHED)
+                    ↓
+PAYOUT DECISION & SETTLEMENT (Underwriter Disbursal)
+                    ↓
+WORKER CHOICE (Keep in Bank OR Add to Safety Wallet)
+```
+
+### 34.2 Updated Bottom Navigation
+The mobile bottom navigation is structured into 6 primary destinations:
+1. **HOME**: Platform overview & earning pulse
+2. **PAY**: LEVELLY Pay, UPI QR, and Save-at-Pay
+3. **SAFETY**: Safety Wallet target & milestone tracking
+4. **GROW**: Curated investment products (paused when under distress)
+5. **INCOMESHIELD**: Parametric income protection & disruption monitoring (`Umbrella` icon)
+6. **PROFILE**: Linked payment methods & account preferences
+
+### 34.3 Database Models (Alembic Migration `2b4c5d6e7f8a`)
+Eight dedicated tables under `app/insurance/models.py`:
+- `InsurancePartner`: Underwriting partner directory and contact endpoints.
+- `InsurancePlan`: Configurable products (Basic, Standard, Plus) with premiums, limits, and trigger conditions.
+- `InsurancePolicy`: User policies with validity windows, status (`ACTIVE`, `EXPIRED`, `CANCELLED`), and registered work zones.
+- `InsuranceConsent`: Immutable record of explicit user consent and terms version acceptance.
+- `InsuranceEvent`: External disruptions with geographic zone, duration, and telemetry sensor logs.
+- `InsuranceTriggerEvaluation`: Deterministic telemetry evaluation (`REACHED`, `NOT_REACHED`, `INVALID`).
+- `InsurancePayout`: Disbursed claims lifecycle (`PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`).
+- `InsuranceDocument`: Statutory policy schedules, exclusions, and terms documents.
+
+### 34.4 API Endpoints
+All endpoints mounted under `/api/insurance/` with user JWT authentication:
+- `GET /api/insurance/status` — Comprehensive IncomeShield status, active policy, and telemetry.
+- `GET /api/insurance/plans` — Curated protection plans from underwriter.
+- `GET /api/insurance/policy` — Current active policy details.
+- `POST /api/insurance/purchase` — Enroll with mandatory explicit consent.
+- `GET /api/insurance/events` — Disruption events within worker's registered delivery zone.
+- `GET /api/insurance/events/{id}` — Individual disruption details.
+- `GET /api/insurance/events/{id}/impact` — Estimated income impact calculation.
+- `GET /api/insurance/events/{id}/trigger` — Policy trigger evaluation outcome.
+- `GET /api/insurance/payouts` — Claim payouts history.
+- `POST /api/insurance/payouts/{id}/move-to-safety` — User-directed allocation of claim into Safety Wallet.
+- `GET /api/insurance/documents` — Legal policy documents and exclusions guide.
+- `GET /api/insurance/support` — Partner claims helpline and concierge queries.
+
+### 34.5 Environment Variables
+Add to your deployment environment or `.env`:
+```bash
+INSURANCE_PROVIDER=mock
+INSURANCE_PROVIDER_API_URL=https://api.partner-insurance.example.com
+INSURANCE_PROVIDER_KEY=your_partner_api_key
+INSURANCE_PROVIDER_SECRET=your_partner_secret
+
+DISRUPTION_PROVIDER=mock
+DISRUPTION_PROVIDER_API_URL=https://api.disruption-telemetry.example.com
+DISRUPTION_PROVIDER_KEY=your_telemetry_key
+```
+
+### 34.6 Parametric Rule: Disruption Detection != Guaranteed Payout
+An observed weather or civic disruption **never** automatically creates a payout. The event must:
+1. Occur within the worker's covered delivery zone (e.g. Chennai Delivery Zone).
+2. Fall within the active policy validity period.
+3. Exceed parametric threshold conditions (e.g. rainfall >= 50mm over 3 consecutive hours).
+4. Be evaluated as `REACHED` by the partner policy engine.
+5. If conditions are `NOT_REACHED`, the system explains the observed vs required metric and no payout is created.
+
+### 34.7 Post-Payout Safety Wallet Allocation
+When an insurance payout is settled:
+- The system **never** automatically sweeps funds into investments or savings.
+- The UI highlights the worker's current Safety Wallet balance and target shortfall.
+- The worker chooses whether to **Add to Safety Wallet** (custom amount) or **Keep Payout Available** in their linked bank account.
+
+---
+
+## 35. License / Usage
 
 This README describes the LEVELLY hackathon/project prototype architecture. Before production use, verify all applicable legal, regulatory, payment, lending, investment, privacy and data-protection requirements with appropriate professional and regulated partners.
 

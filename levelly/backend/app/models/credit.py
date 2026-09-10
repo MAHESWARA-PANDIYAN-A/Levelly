@@ -33,7 +33,7 @@ class CreditRequest(Base):
     resilience_score_at_request = Column(Float, nullable=True)
 
     # Partner status
-    partner_offer_id = Column(Integer, ForeignKey("partner_credit_offers.id"), nullable=True)
+    partner_offer_id = Column(Integer, ForeignKey("partner_credit_offers.id", use_alter=True, name="fk_credit_requests_partner_offer_id"), nullable=True)
     status = Column(String(50), default="pending")  # pending, offer_received, accepted, declined, held
 
     notes = Column(Text, nullable=True)
