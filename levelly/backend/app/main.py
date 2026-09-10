@@ -36,19 +36,21 @@ async def lifespan(app: FastAPI):
         # Always run migrations to ensure all tables (including insurance tables) exist
         print("[SCHEMA] Running Alembic migrations (alembic upgrade head)...")
         try:
-            import subprocess
-            import sys
-            result = subprocess.run(
-                [sys.executable, "-m", "alembic", "upgrade", "head"],
-                capture_output=True,
-                text=True,
+            from alembic.config import Config
+            from alembic import command as alembic_command
+
+            # Resolve alembic.ini relative to this file — works regardless of CWD on Render
+            _backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            _alembic_ini = os.path.join(_backend_dir, "alembic.ini")
+            alembic_cfg = Config(_alembic_ini)
+            # Override script_location to an absolute path so it never fails
+            alembic_cfg.set_main_option(
+                "script_location", os.path.join(_backend_dir, "alembic")
             )
-            if result.returncode == 0:
-                print(f"[SCHEMA] Migrations applied successfully.\n{result.stdout}")
-            else:
-                print(f"[SCHEMA] Migration warning (returncode={result.returncode}):\n{result.stderr}")
+            alembic_command.upgrade(alembic_cfg, "head")
+            print("[SCHEMA] Migrations applied successfully.")
         except Exception as mig_err:
-            print(f"[SCHEMA] Could not run migrations automatically: {mig_err}")
+            print(f"[SCHEMA] Migration warning: {mig_err}")
 
         if settings.APP_ENV != "production":
             # Development/local: Auto-seed if database is completely empty
