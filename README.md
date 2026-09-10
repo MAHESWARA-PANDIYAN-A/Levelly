@@ -13,13 +13,13 @@ Gig workers and informal workers such as delivery partners, cab drivers, freelan
 This creates two connected challenges: workers struggle to build financial resilience, and banks may identify financial distress only after the situation has already become severe.
 
 ## Key Problems
-1.Irregular income: Daily and weekly earnings fluctuate, making fixed financial planning difficult.
-2.Inconsistent savings: Fixed savings commitments may become unaffordable during low-income periods.
-3.Emergency financial pressure: Unexpected expenses can force workers to use savings or seek additional credit at the wrong time.
-4.Late distress detection: Sustained income decline and rising expense pressure may go unnoticed until repayment problems emerge.
-5.Credit decisions based on historical stability: A worker may appear creditworthy based on past income even when their current financial position is deteriorating.
-6.Lack of personalized intervention: Existing systems often do not proactively tell the user what action to take when financial pressure begins.
-7.Disconnected financial services: Payments, savings, credit, insurance, investments, and financial guidance are often handled separately.
+- Irregular income: Daily and weekly earnings fluctuate, making fixed financial planning difficult.
+- Inconsistent savings: Fixed savings commitments may become unaffordable during low-income periods.
+- Emergency financial pressure: Unexpected expenses can force workers to use savings or seek additional credit at the wrong time.
+- Late distress detection: Sustained income decline and rising expense pressure may go unnoticed until repayment problems emerge.
+- Credit decisions based on historical stability: A worker may appear creditworthy based on past income even when their current financial position is deteriorating.
+- Lack of personalized intervention: Existing systems often do not proactively tell the user what action to take when financial pressure begins.
+- Disconnected financial services: Payments, savings, credit, insurance, investments, and financial guidance are often handled separately.
 
 ## Core Problem
 
