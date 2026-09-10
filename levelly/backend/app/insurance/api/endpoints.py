@@ -144,9 +144,12 @@ def list_insurance_plans(
     except HTTPException:
         raise
     except Exception as exc:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[ERROR] /api/insurance/plans failed: {tb}")
         raise HTTPException(
             status_code=503,
-            detail=f"Insurance plans temporarily unavailable. Database error: {type(exc).__name__}",
+            detail=f"Insurance plans unavailable: {type(exc).__name__}: {exc}",
         ) from exc
 
 
