@@ -8,19 +8,22 @@ LEVELLY is an intelligent financial-resilience platform designed for gig and inf
 
 ## 1. Problem Statement
 
-Gig workers and informal workers often have irregular earnings while traditional banking systems are designed around fixed salaries and predictable monthly income.
+Gig workers and informal workers such as delivery partners, cab drivers, freelancers, and daily-wage workers often experience irregular and unpredictable income, while traditional banking systems are primarily designed around stable salaries and predictable monthly cash flows.
 
-LEVELLY addresses two related problem statements:
+This creates two connected challenges: workers struggle to build financial resilience, and banks may identify financial distress only after the situation has already become severe.
 
-### PS3 — Preventing Financial Distress Before It Becomes a Crisis
-How might banks responsibly identify early signs of financial distress and provide personalized interventions that help customers avoid excessive debt, loan defaults, and financial exclusion?
+##Key Problems
+1.Irregular income: Daily and weekly earnings fluctuate, making fixed financial planning difficult.
+2.Inconsistent savings: Fixed savings commitments may become unaffordable during low-income periods.
+3.Emergency financial pressure: Unexpected expenses can force workers to use savings or seek additional credit at the wrong time.
+4.Late distress detection: Sustained income decline and rising expense pressure may go unnoticed until repayment problems emerge.
+5.Credit decisions based on historical stability: A worker may appear creditworthy based on past income even when their current financial position is deteriorating.
+6.Lack of personalized intervention: Existing systems often do not proactively tell the user what action to take when financial pressure begins.
+7.Disconnected financial services: Payments, savings, credit, insurance, investments, and financial guidance are often handled separately.
 
-### PS4 — Financial Resilience for Gig and Informal Workers
-How might banking technology help gig workers and individuals with irregular incomes build financial resilience through intelligent savings, responsible access to credit, and personalized financial guidance?
+##Core Problem
 
-### Core Problem
-
-There is no unified solution that continuously understands irregular income, helps workers build financial resilience, detects financial distress early, and responsibly controls additional borrowing before temporary financial pressure becomes excessive debt or default.
+How might banking technology help gig and informal workers build financial resilience through adaptive savings and responsible financial services, while continuously identifying early signs of financial distress and providing personalized interventions before temporary income shocks become excessive debt, loan default, or financial exclusion?
 
 ---
 
