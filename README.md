@@ -12,7 +12,7 @@ Gig workers and informal workers such as delivery partners, cab drivers, freelan
 
 This creates two connected challenges: workers struggle to build financial resilience, and banks may identify financial distress only after the situation has already become severe.
 
-##Key Problems
+## Key Problems
 1.Irregular income: Daily and weekly earnings fluctuate, making fixed financial planning difficult.
 2.Inconsistent savings: Fixed savings commitments may become unaffordable during low-income periods.
 3.Emergency financial pressure: Unexpected expenses can force workers to use savings or seek additional credit at the wrong time.
@@ -21,7 +21,7 @@ This creates two connected challenges: workers struggle to build financial resil
 6.Lack of personalized intervention: Existing systems often do not proactively tell the user what action to take when financial pressure begins.
 7.Disconnected financial services: Payments, savings, credit, insurance, investments, and financial guidance are often handled separately.
 
-##Core Problem
+## Core Problem
 
 How might banking technology help gig and informal workers build financial resilience through adaptive savings and responsible financial services, while continuously identifying early signs of financial distress and providing personalized interventions before temporary income shocks become excessive debt, loan default, or financial exclusion?
 
